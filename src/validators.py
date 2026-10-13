@@ -21,7 +21,7 @@ def getIntInput(
         except ValueError:
             print(f"Błąd: '{raw}' to nie int!")
 
-def getIntFloat(
+def getFloat(
     prompt: str,
     min_val: float = None,
     max_val: float = None
@@ -62,6 +62,17 @@ def getValidCategory(prompt: str) -> str:
         raw = input(prompt).strip().lower()
         if raw not in categories:
             print("podaj poprawna kategorie.")
+            continue
+        else:
+            return raw
+
+def getValidRarity(prompt:str)-> str:
+    rarities = ["common", "uncommon","rare","epic","legendary"]
+    while True:
+        raw = input(prompt).strip().lower()
+        print(raw)
+        if raw not in rarities:
+            print("podaj poprawe rarity.")
             continue
         else:
             return raw
