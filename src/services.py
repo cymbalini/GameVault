@@ -5,18 +5,25 @@ def displayInventory():
     print("\n" + "=" * 40)
     print("INVENTORY")
     print("=" * 40)
+    print("-" * 64)
+    print(f"|name" + " "*16  + "|" + "count" + " "*15 + "|" + "weight" + " "*14 + "|")
+    print("-" * 64)
     for i in INVENTORY:
-        print(f"name: {i['name']}, count: {i['count']}")
-    print("-" * 40)
+        print(f"|{i['name']:<20}|{i['count']:<20}|{i['weight']:<20}|")
+
+    print("-" * 64)
 
 def showFilteredInventoryBy():
     validCategory = getValidCategory("podaj kategorie: ")
     print("\n" + "=" * 40)
     print(f"INVENTORY SORTED BY {validCategory}")
     print("=" * 40)
+    print("-" * 64)
+    print(f"|name" + " " * 16 + "|" + "count" + " " * 15 + "|" + "weight" + " " * 14 + "|")
+    print("-" * 64)
     for i in sorted(INVENTORY, key=lambda x: x[validCategory], reverse=False):
-        print(f"name: {i['name']}, count: {i['count']}")
-    print("-" * 40)
+        print(f"|{i['name']:<20}|{i['count']:<20}|{i['weight']:<20}|")
+    print("-" * 64)
 
 def addInventory()-> None:
     name = getNonEmptyString("podaj nazwe")
