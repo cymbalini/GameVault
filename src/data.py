@@ -1,23 +1,16 @@
-INVENTORY = [
-    {
-        "id": 1,
-        "name": "cobblestone",
-        "weight": 10.0,
-        "count": 3,
-        "rarity": "rare"
-    },
-    {
-        "id": 2,
-        "name": "stick",
-        "weight": 2.0,
-        "count": 2,
-        "rarity": "rare"
-    },
-    {
-        "id": 3,
-        "name": "wood",
-        "weight": 3.0,
-        "count": 1,
-        "rarity": "common"
-    }
-]
+import json
+
+def getInventory() -> list:
+    with open('data/inventory.json', 'r') as file:
+        data = json.load(file)
+        return data
+
+
+def addToInventoryToJSON(entry:list):
+
+    currentInventory = getInventory()
+    currentInventory.append(entry)
+
+    with open('data/inventory.json', 'w') as file:
+        json.dump(currentInventory, file, indent=4)
+

@@ -3,7 +3,9 @@ from validators import *
 
 MAXWEIGHT = 200
 
-def showInventory(inventory=INVENTORY):
+def showInventory(inventory=None):
+    if inventory is None:
+        inventory = getInventory()
     print("\n" + "=" * 40)
     print("INVENTORY")
     print("=" * 40)
@@ -17,23 +19,24 @@ def showInventory(inventory=INVENTORY):
 
 def showFilteredInventoryBy():
     validcategory = getValidCategory("podaj kategorie: ")
-    showInventory(sorted(INVENTORY, key=lambda x: x[validcategory], reverse=False))
+    showInventory(sorted(getInventory(), key=lambda x: x[validcategory], reverse=False))
 
 def addInventory()-> None:
     name = getNonEmptyString("podaj nazwe:\n")
     count = getIntInput("podaj ilosc:\n")
     weight = getFloat(f"podaj wage max({((200-getWeightOfInventory())/count):.2f}): \n", 0.1, 200-getWeightOfInventory())
-    INVENTORY.append({"id": len(INVENTORY),"name": name, "count": count, "weight": weight})
+    rarity = getValidRarity("podaj rarity:\n")
+    addToInventoryToJSON({"id": len(getInventory()),"name": name, "count": count, "weight": weight, "rarity": rarity})
 
 def getWeightOfInventory() -> float:
     out =0.0
-    for i in INVENTORY:
+    for i in getInventory():
         out += i["weight"]*i["count"]
     return out
 
 def showSortedInventoryByRarity():
     rarity = getValidRarity("Podaj rarity:\n")
-    showInventory(x for x in INVENTORY if x['rarity'] == rarity)
+    showInventory(x for x in getInventory() if x['rarity'] == rarity)
 
 def handleMenuChoice(prompt: str) -> bool:
     match getNonEmptyString(prompt):
@@ -54,6 +57,13 @@ def handleMenuChoice(prompt: str) -> bool:
             return True
         case "6":
             #test
+            addToInventoryToJSON({
+                "id": 10,
+                "name": "as",
+                "count": 1,
+                "weight": 2.0,
+                "rarity": "rare"
+            })
             return True
         case "7" | "q" | "exit":
             print("Zamykanie programu. Do widzenia!")
