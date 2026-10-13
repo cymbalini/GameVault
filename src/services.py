@@ -23,7 +23,8 @@ def addInventory()-> None:
     name = getNonEmptyString("podaj nazwe:\n")
     count = getIntInput("podaj ilosc:\n")
     weight = getFloat(f"podaj wage max({((200-getWeightOfInventory())/count):.2f}): \n", 0.1, 200-getWeightOfInventory())
-    INVENTORY.append({"id": len(INVENTORY),"name": name, "count": count, "weight": weight})
+    rarity = getNonEmptyString("podaj rarity:\n")
+    INVENTORY.append({"id": len(INVENTORY),"name": name, "count": count, "weight": weight, "rarity": rarity})
 
 def getWeightOfInventory() -> float:
     out =0.0
