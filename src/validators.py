@@ -54,5 +54,14 @@ def getNonEmptyString(
             continue
         else:
             return raw
-def validateCategory(category: str) -> str: #TODO
-    return category
+
+
+def getValidCategory(prompt: str) -> str:
+    categories = ["name","id","weight","count"]
+    while True:
+        raw = input(prompt).strip().lower()
+        if raw not in categories:
+            print("podaj poprawna kategorie.")
+            continue
+        else:
+            return raw

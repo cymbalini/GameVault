@@ -9,10 +9,10 @@ def displayInventory():
         print(f"name: {i['name']}, count: {i['count']}")
     print("-" * 40)
 
-def showFilteredInventoryBy(category: str):
-    validCategory = validateCategory(category)
+def showFilteredInventoryBy():
+    validCategory = getValidCategory("podaj kategorie: ")
     print("\n" + "=" * 40)
-    print(f"INVENTORY SORTED BY {category}")
+    print(f"INVENTORY SORTED BY {validCategory}")
     print("=" * 40)
     for i in sorted(INVENTORY, key=lambda x: x[validCategory], reverse=False):
         print(f"name: {i['name']}, count: {i['count']}")
@@ -37,11 +37,10 @@ def handleMenuChoice(prompt: str) -> bool:
         #     showCraftableItems()
         #     showCrafting()
         case "4":
-            showFilteredInventoryBy(getNonEmptyString("podaj kategorie"))
+            showFilteredInventoryBy()
             return True
         case "5" | "q" | "exit":
             print("Zamykanie programu. Do widzenia!")
-            # Zakończenie pętli głównej
             return False
         case "6":
             #test
@@ -57,7 +56,8 @@ def printMenu():
     print("=" * 40)
     print("1. Wyświetl aktualne menu")
     print("2. Wyswietl aktualny ekwipunek")
-    print("3. Wyswietl craftingi")
+    print("3. Wyswietl craftingi TODO")
     print("4. Wyswietl aktualny ekwipunek filtrowany")
     print("5. Wyjście z programu")
+    print("6. test")
     print("-" * 40)
