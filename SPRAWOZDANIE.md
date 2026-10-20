@@ -1,4 +1,4 @@
-# Sprawozdanie z Zadania Laboratoryjnego nr [NUMER]
+# Sprawozdanie z Zadania Laboratoryjnego nr 2
 **Przedmiot:** Programowanie w języku Python (`IwIK-S1`)  
 **Projekt:** GameVault  
 **Zespół (Autorzy):**  
@@ -9,8 +9,7 @@
 ---
 
 ## 1. Cel i Zakres Inżynierski Zadania
-Podstawowa implementacja user inputa, sworzenie walidatorów, oraz tymczasowego pliku data.py
-
+* przetwarzanie danych przy pomocy json oraz export do csv
 ---
 
 ## 2. Architektura Rozwiązania i Struktura Modułów
@@ -19,6 +18,7 @@ Podstawowa implementacja user inputa, sworzenie walidatorów, oraz tymczasowego 
 * `src/validators.py` – sprawdzanie user inputa
 * `src/services.py` – logika programu
 * `src/main.py` – plik główny
+* `src/data` - pliki json oraz export csv
 
 ---
 
@@ -26,16 +26,25 @@ Podstawowa implementacja user inputa, sworzenie walidatorów, oraz tymczasowego 
 *(Wybrany, najważniejszy lub najciekawszy fragment kodu źródłowego zrealizowany w tym etapie – maksymalnie 15–25 linii).*
 
 ```python
-def main():
-    running = True
-    printMenu()
-    while running:
-        running = handleMenuChoice("Wybierz opcję [1-5]: ")
-
+def getInventory() -> list:
+    try:
+        with open('data/inventory.json', 'r') as file:
+            data = json.load(file)
+            return data
+    except FileNotFoundError:
+        print('Inventory file not found, creating new one')
+        open('data/inventory.json', 'w')
+        return []
+    except PermissionError:
+        print('Missing permissions')
+        return []
+    except json.decoder.JSONDecodeError:
+        print('JSON decode error')
+        return []
 ```
 
 **Uzasadnienie wyboru:**  
-Bez pętli w main() nie mogli byśmy wykonywać więcej niż 1 rzecz w programie.
+duza ilosc except
 
 ---
 
@@ -51,21 +60,13 @@ Bez pętli w main() nie mogli byśmy wykonywać więcej niż 1 rzecz w programie
 ========================================
 1. Wyświetl aktualne menu
 2. Wyswietl aktualny ekwipunek
-3. Wyswietl craftingi TODO
-4. Wyswietl aktualny ekwipunek filtrowany
-5. Wyjście z programu
+3. Wyswietl filtrowany ekwipunek przez rzadkosc
+4. Wyswietl aktualny ekwipunek filtrowany przez kategorie
+5. Dodaj item
 6. test
+7. Wyjście z programu
 ----------------------------------------
-Wybierz opcję [1-5]: 2
-
-========================================
-INVENTORY
-========================================
-name: cobblestone, count: 3
-name: stick, count: 2
-name: wood, count: 1
-----------------------------------------
-Wybierz opcję [1-5]: 
+Wybierz opcję [1-5]: 6
 ```
 
 ### Scenariusz B: Obsługa błędów i wartości brzegowych
@@ -77,12 +78,13 @@ Wybierz opcję [1-5]:
 ========================================
 1. Wyświetl aktualne menu
 2. Wyswietl aktualny ekwipunek
-3. Wyswietl craftingi TODO
-4. Wyswietl aktualny ekwipunek filtrowany
-5. Wyjście z programu
+3. Wyswietl filtrowany ekwipunek przez rzadkosc
+4. Wyswietl aktualny ekwipunek filtrowany przez kategorie
+5. Dodaj item
 6. test
+7. Wyjście z programu
 ----------------------------------------
-Wybierz opcję [1-5]: asd
+Wybierz opcję [1-5]: sa
 Błąd: Nieznana opcja. Wybierz wartość od 1 do 5.
 Wybierz opcję [1-5]: 
 ```
@@ -94,8 +96,5 @@ Wybierz opcję [1-5]:
 * **Krzysztof Nowak:**
   * Odpowiedzialność za moduły: `src/...`
   * Zaimplementowane funkcjonalności: *
-  * Liczba wykonanych commitów: 
-* **[Imię Nazwisko Studenta 2]:**
-  * Odpowiedzialność za moduły: `src/...`
-  * Zaimplementowane funkcjonalności: [...]
-  * Liczba wykonanych commitów: [...]
+  * Liczba wykonanych commitów: *
+

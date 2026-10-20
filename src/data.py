@@ -1,5 +1,7 @@
+import csv
 import json
 from typing import Any
+from operator import itemgetter
 
 
 def getInventory() -> list:
@@ -30,3 +32,20 @@ def addToInventoryToJSON(entry:dict[str,Any]) -> None:
     except:
         print('something went wrong while adding to inventory')
 
+
+def exportToCSV() -> None:
+
+    sortedInventory = sorted(getInventory(), key=itemgetter('rarity'))
+
+    fieldnames = list(sortedInventory[0].keys())
+
+    try:
+        with open('data/lootTable.csv', 'w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+            writer.writeheader()
+
+            writer.writerows(sortedInventory)
+
+    except IOError:
+        print("something went wrong while exporting to csv")

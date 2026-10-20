@@ -9,33 +9,26 @@ def showInventory(inventory=None):
     print("\n" + "=" * 40)
     print("INVENTORY")
     print("=" * 40)
-    print("-" * 85)
-    print(f"|name" + " " * 16 + "|" + "count" + " " * 15 + "|" + "weight" + " " * 14 + "|" + "rarity" + " "*14 + "|")
-    print("-" * 85)
+    print("-" * 105)
+    print(f"|name" + " " * 16 + "|" + "count" + " " * 15 + "|" + "weight" + " " * 14 + "|" + "rarity" + " "*14 + "|" + "value" +" "*15 + "|")
+    print("-" * 105)
     for i in inventory:
-        print(f"|{i['name']:<20}|{i['count']:<20}|{i['weight']:<20}|{i['rarity']:<20}|")
-    print("-" * 85)
+        print(f"|{i['name']:<20}|{i['count']:<20}|{i['weight']:<20}|{i['rarity']:<20}|{i['value']:<20}|")
+    print("-" * 105)
     print(f"total {getWeightOfInventory()} of weight points in inventory.")
 
 def showFilteredInventoryBy():
     validcategory = getValidCategory("podaj kategorie: ")
 
-    newInventory = []
-
-    for i in getInventory():
-        if i["weight"]<3.0:
-            i["name"] +="[lekki]"
-        newInventory.append(i)
-
-
-    showInventory(sorted(newInventory, key=lambda x: x[validcategory], reverse=False))
+    showInventory(sorted(getInventory(), key=lambda x: x[validcategory], reverse=False))
 
 def addInventory()-> None:
     name = getNonEmptyString("podaj nazwe:\n")
     count = getIntInput("podaj ilosc:\n")
     weight = getFloat(f"podaj wage max({((200-getWeightOfInventory())/count):.2f}): \n", 0.1, 200-getWeightOfInventory())
     rarity = getValidRarity("podaj rarity:\n")
-    addToInventoryToJSON({"id": len(getInventory()),"name": name, "count": count, "weight": weight, "rarity": rarity})
+    value = getFloat("podaj wartosc:\n")
+    addToInventoryToJSON({"id": len(getInventory()),"name": name, "count": count, "weight": weight, "rarity": rarity, "value": value})
 
 def getWeightOfInventory() -> float:
     out =0.0
@@ -66,13 +59,7 @@ def handleMenuChoice(prompt: str) -> bool:
             return True
         case "6":
             #test
-            addToInventoryToJSON({
-                "id": 10,
-                "name": "as",
-                "count": 1,
-                "weight": 2.0,
-                "rarity": "rare"
-            })
+            exportToCSV()
             return True
         case "7" | "q" | "exit":
             print("Zamykanie programu. Do widzenia!")
