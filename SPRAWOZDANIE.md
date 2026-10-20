@@ -44,7 +44,7 @@ def getInventory() -> list:
 ```
 
 **Uzasadnienie wyboru:**  
-duza ilosc except
+Bez pętli w main() nie mogli byśmy wykonywać więcej niż 1 rzecz w programie.
 
 ---
 
