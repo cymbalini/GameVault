@@ -19,7 +19,16 @@ def showInventory(inventory=None):
 
 def showFilteredInventoryBy():
     validcategory = getValidCategory("podaj kategorie: ")
-    showInventory(sorted(getInventory(), key=lambda x: x[validcategory], reverse=False))
+
+    newInventory = []
+
+    for i in getInventory():
+        if i["weight"]<3.0:
+            i["name"] +="[lekki]"
+        newInventory.append(i)
+
+
+    showInventory(sorted(newInventory, key=lambda x: x[validcategory], reverse=False))
 
 def addInventory()-> None:
     name = getNonEmptyString("podaj nazwe:\n")
