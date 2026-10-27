@@ -1,15 +1,14 @@
-# Sprawozdanie z Zadania Laboratoryjnego nr 2
+# Sprawozdanie z Zadania Laboratoryjnego nr 3
 **Przedmiot:** Programowanie w języku Python (`IwIK-S1`)  
 **Projekt:** GameVault  
 **Zespół (Autorzy):**  
 1. Krzysztof Nowak (nr albumu: 164853) – login Git: `cymbalini`
-2. [Imię i Nazwisko Studenta 2] (nr albumu: [NUMER]) – login Git: `[LOGIN]`  
-**Data oddania:** 13.10.2026  
+**Data oddania:** 27.10.2026  
 
 ---
 
 ## 1. Cel i Zakres Inżynierski Zadania
-* przetwarzanie danych przy pomocy json oraz export do csv
+* zapis atomowy oraz tworzenie i odzyskiwanie backupow
 ---
 
 ## 2. Architektura Rozwiązania i Struktura Modułów
@@ -18,7 +17,7 @@
 * `src/validators.py` – sprawdzanie user inputa
 * `src/services.py` – logika programu
 * `src/main.py` – plik główny
-* `src/data` - pliki json oraz export csv
+* `src/data` - pliki json oraz export csv oraz backupy
 
 ---
 
@@ -26,25 +25,13 @@
 *(Wybrany, najważniejszy lub najciekawszy fragment kodu źródłowego zrealizowany w tym etapie – maksymalnie 15–25 linii).*
 
 ```python
-def getInventory() -> list:
-    try:
-        with open('data/inventory.json', 'r') as file:
-            data = json.load(file)
-            return data
-    except FileNotFoundError:
-        print('Inventory file not found, creating new one')
-        open('data/inventory.json', 'w')
-        return []
-    except PermissionError:
-        print('Missing permissions')
-        return []
-    except json.decoder.JSONDecodeError:
-        print('JSON decode error')
-        return []
+def generate_gold_hash(gold_value: int) -> str:
+    return hashlib.sha256(f"{gold_value}{SECRET_SALT}".encode('utf-8')).hexdigest()
+
 ```
 
 **Uzasadnienie wyboru:**  
-Bez pętli w main() nie mogli byśmy wykonywać więcej niż 1 rzecz w programie.
+hashowanie jest wazne by nikt nie mogl swobodnie zmieniac zlota w plecaku
 
 ---
 
@@ -53,25 +40,25 @@ Bez pętli w main() nie mogli byśmy wykonywać więcej niż 1 rzecz w programie
 
 ### Scenariusz A: Ścieżka poprawna (Happy Path)
 * **Dane wejściowe:** 2
-* **Oczekiwany i uzyskany wynik:** chcieliśmy wyświetlić aktualy ekwipunek. Wyświetlim nam się on.
+* **Oczekiwany i uzyskany wynik:** posiadanie i wyswietlenie pliku savegames
 ```text
+Wybierz opcję [1-7]: 2
+
 ========================================
- SYSTEM ZARZĄDZANIA KAWIARNIĄ GameVault
+INVENTORY
 ========================================
-1. Wyświetl aktualne menu
-2. Wyswietl aktualny ekwipunek
-3. Wyswietl filtrowany ekwipunek przez rzadkosc
-4. Wyswietl aktualny ekwipunek filtrowany przez kategorie
-5. Dodaj item
-6. test
-7. Wyjście z programu
-----------------------------------------
-Wybierz opcję [1-5]: 6
+---------------------------------------------------------------------------------------------------------
+|name                |count               |weight              |rarity              |value               |
+---------------------------------------------------------------------------------------------------------
+|a                   |2                   |12.0                |common              |12.0                |
+---------------------------------------------------------------------------------------------------------
+total 24.0 of weight points in inventory.
+Wybierz opcję [1-7]: 
 ```
 
 ### Scenariusz B: Obsługa błędów i wartości brzegowych
-* **Dane wejściowe (błędne): asd
-* **Reakcja programu:**
+* **Dane wejściowe (błędne): 2 i brak pliku savegames
+* **Reakcja programu:** 
 ```text
 ========================================
  SYSTEM ZARZĄDZANIA KAWIARNIĄ GameVault
@@ -81,12 +68,22 @@ Wybierz opcję [1-5]: 6
 3. Wyswietl filtrowany ekwipunek przez rzadkosc
 4. Wyswietl aktualny ekwipunek filtrowany przez kategorie
 5. Dodaj item
-6. test
+6. Eksport danych do csv
 7. Wyjście z programu
 ----------------------------------------
-Wybierz opcję [1-5]: sa
-Błąd: Nieznana opcja. Wybierz wartość od 1 do 5.
-Wybierz opcję [1-5]: 
+Wybierz opcję [1-7]: 2
+Brak pliku zapisu JSON.
+Tworzenie pustej bazy danych.
+
+========================================
+INVENTORY
+========================================
+---------------------------------------------------------------------------------------------------------
+|name                |count               |weight              |rarity              |value               |
+---------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------
+total 0.0 of weight points in inventory.
+
 ```
 
 ---
