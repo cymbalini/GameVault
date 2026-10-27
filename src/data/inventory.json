@@ -4,34 +4,31 @@
         "name": "cobblestone",
         "weight": 10.0,
         "count": 3,
-        "rarity": "rare"
+        "rarity": "rare",
+        "value": 12.3
     },
     {
         "id": 2,
         "name": "stick",
         "weight": 2.0,
         "count": 2,
-        "rarity": "rare"
+        "rarity": "rare",
+        "value": 12.5
     },
     {
         "id": 3,
         "name": "wood",
         "weight": 3.0,
         "count": 1,
-        "rarity": "common"
+        "rarity": "common",
+        "value": 11.3
     },
     {
         "id": 3,
         "name": "asd",
-        "count": 2,
-        "weight": 1.0,
-        "rarity": "rare"
-    },
-    {
-        "id": 4,
-        "name": "glass",
-        "count": 2,
+        "count": 1,
         "weight": 12.0,
-        "rarity": "common"
+        "rarity": "rare",
+        "value": 21.1
     }
 ]
