@@ -77,6 +77,6 @@ def printMenu():
     print("3. Wyswietl filtrowany ekwipunek przez rzadkosc")
     print("4. Wyswietl aktualny ekwipunek filtrowany przez kategorie")
     print("5. Dodaj item")
-    print("6. test")
+    print("6. Eksport danych do csv")
     print("7. Wyjście z programu")
     print("-" * 40)

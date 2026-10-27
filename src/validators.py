@@ -70,7 +70,6 @@ def getValidRarity(prompt:str)-> str:
     rarities = ["common", "uncommon","rare","epic","legendary"]
     while True:
         raw = input(prompt).strip().lower()
-        print(raw)
         if raw not in rarities:
             print("podaj poprawe rarity.")
             continue
