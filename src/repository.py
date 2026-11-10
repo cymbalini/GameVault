@@ -1,5 +1,5 @@
 from data import JsonStorage
-from src.models import Inventory, Item
+from src.models import HeroInventoryManager, Item
 
 
 class GameRepository:
@@ -10,13 +10,13 @@ class GameRepository:
 
     def getInventory(self):
         state = self.storage.load()
-        inventory = Inventory(self.max_weight_kg)
+        inventory = HeroInventoryManager(self.max_weight_kg)
         next_id = 0
         used_ids = set()
         reserved_ids = set()
 
         for saved_item in state.get("inventory", []):
-            if isinstance(saved_item, dict):
+            if type(saved_item) is dict:
                 try:
                     old_id = saved_item.get("item_id", saved_item.get("id"))
                     if old_id is not None:
@@ -26,7 +26,6 @@ class GameRepository:
 
         for saved_item in state.get("inventory", []):
             try:
-                # Starszy zapis przechowywał ilość jako count i wspólną wagę.
                 count = int(saved_item.get("count", 1))
                 if count < 1:
                     continue
@@ -46,9 +45,13 @@ class GameRepository:
                         "weight_kg": saved_item.get("weight_kg", saved_item.get("weight")),
                         "gold_value": saved_item.get("gold_value", saved_item.get("value")),
                         "rarity": self._convert_rarity(saved_item["rarity"]),
-                        "item_type": saved_item.get("item_type", "Item"),
+                        "type": saved_item.get("type", saved_item.get("item_type", "other")),
                     }
-                    for field in ("damage", "defense", "healing_power"):
+                    for field in (
+                        "damage", "base_damage", "hit_multiplier", "durability_percent",
+                        "defense", "defense_class", "equipment_slot", "magic_resistance",
+                        "healing_power"
+                    ):
                         if field in saved_item:
                             item_data[field] = saved_item[field]
                     item = Item.from_dict(item_data)
@@ -61,7 +64,6 @@ class GameRepository:
 
     def _convert_rarity(self, rarity):
         rarity = str(rarity).title()
-        # W starszych zapisach istniała rzadkość uncommon.
         if rarity == "Uncommon":
             return "Common"
         return rarity

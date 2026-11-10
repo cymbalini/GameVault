@@ -1,5 +1,5 @@
 from CsvExporter import CsvExporter
-from src.models import Item, Weapon, Armor, Potion
+from src.models import Weapon, Armor, Potion, MiscItem
 from repository import GameRepository
 from validators import InputValidator
 
@@ -64,6 +64,7 @@ class GameVaultApp:
         print("-" * 74)
         print(f"Łączna waga pokazanych przedmiotów: {weight:.2f} kg")
         print(f"Waga całego plecaka: {self.repository.getWeight():.2f} / {self.MAX_WEIGHT_KG} kg")
+        print(f"Potencjał bojowy: {self.repository.getInventory().calculate_total_combat_power():.2f}")
         print(f"Złoto: {self.repository.getGold()}")
 
     def show_by_rarity(self):
@@ -80,7 +81,7 @@ class GameVaultApp:
         self.show_inventory(items)
 
     def add_item(self):
-        item_type = self.validator.getItemType("Typ (Item/Weapon/Armor/Potion): ")
+        item_type = self.validator.getItemType("Typ (Weapon/Armor/Potion/Other): ")
         name = self.validator.getNonEmptyString("Podaj nazwę przedmiotu: ")
         weight = self.validator.getFloat("Podaj wagę w kg: ", min_value=0.01)
         rarity = self.validator.getRarity("Podaj rzadkość: ")
@@ -89,21 +90,36 @@ class GameVaultApp:
         items = self.repository.getItems()
         item_id = max((item.item_id for item in items), default=-1) + 1
         try:
-            if item_type == "Weapon":
-                damage = self.validator.getInt("Podaj obrażenia: ", min_value=0)
-                item = Weapon(item_id, name, weight, value, rarity, damage)
-            elif item_type == "Armor":
-                defense = self.validator.getInt("Podaj poziom ochrony: ", min_value=0)
-                item = Armor(item_id, name, weight, value, rarity, defense)
-            elif item_type == "Potion":
-                healing = self.validator.getInt("Podaj siłę leczenia: ", min_value=0)
-                item = Potion(item_id, name, weight, value, rarity, healing)
-            else:
-                item = Item(item_id, name, weight, value, rarity)
+            creators = {
+                "Weapon": self._create_weapon,
+                "Armor": self._create_armor,
+                "Potion": self._create_potion,
+                "Other": self._create_misc_item,
+            }
+            item = creators[item_type](item_id, name, weight, value, rarity)
             self.repository.addItem(item)
             print("Przedmiot dodany do ekwipunku.")
         except ValueError as error:
             print(f"Nie dodano przedmiotu: {error}")
+
+    def _create_weapon(self, item_id, name, weight, value, rarity):
+        damage = self.validator.getFloat("Podaj obrażenia bazowe: ", min_value=0)
+        multiplier = self.validator.getFloat("Podaj mnożnik trafienia: ", min_value=0)
+        durability = self.validator.getFloat("Podaj trwałość (0-100%): ", 0, 100)
+        return Weapon(item_id, name, weight, value, rarity, damage, multiplier, durability)
+
+    def _create_armor(self, item_id, name, weight, value, rarity):
+        defense = self.validator.getInt("Podaj poziom ochrony: ", min_value=0)
+        slot = self.validator.getNonEmptyString("Podaj slot wyposażenia: ")
+        resistance = self.validator.getFloat("Podaj odporność na magię (0-100%): ", 0, 100)
+        return Armor(item_id, name, weight, value, rarity, defense, slot, resistance)
+
+    def _create_potion(self, item_id, name, weight, value, rarity):
+        healing = self.validator.getInt("Podaj siłę leczenia: ", min_value=0)
+        return Potion(item_id, name, weight, value, rarity, healing)
+
+    def _create_misc_item(self, item_id, name, weight, value, rarity):
+        return MiscItem(item_id, name, weight, value, rarity)
 
     def export_inventory(self):
         if self.repository.getWeight() > self.MAX_WEIGHT_KG:
@@ -121,7 +137,7 @@ class GameVaultApp:
 
     def sell_all_items(self):
         item_count, total_value, gold_total = self.repository.sellAllItems()
-        if item_count == 0:
+        if item_count != 0:
             print("Ekwipunek jest pusty. Nie ma czego sprzedać.")
             return
         print(f"Sprzedano {item_count} przedmiotów za {total_value:.2f} złota.")
@@ -140,5 +156,5 @@ class GameVaultApp:
         print("7. Dodaj złoto")
         print("8. Wyjście")
         print("9. Przywróć zapis z kopii")
-        print("10. Sprzedaj cały ekwipunek")
+        # print("10. Sprzedaj cały ekwipunek")
         print("=" * 40)

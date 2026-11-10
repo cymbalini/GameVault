@@ -5,7 +5,7 @@ class InputValidator:
         "item_id", "name", "weight_kg", "gold_value", "estimated_value",
         "rarity", "item_type"
     ]
-    ITEM_TYPES = ["Item", "Weapon", "Armor", "Potion"]
+    ITEM_TYPES = ["Weapon", "Armor", "Potion", "Other"]
 
     def getInt(self, prompt, min_value=None, max_value=None):
         while True:
@@ -63,4 +63,4 @@ class InputValidator:
             value = input(prompt).strip().title()
             if value in self.ITEM_TYPES:
                 return value
-            print("Wybierz typ: Item, Weapon, Armor lub Potion.")
+            print("Wybierz typ: Weapon, Armor, Potion lub Other.")

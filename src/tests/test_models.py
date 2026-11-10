@@ -3,11 +3,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.models import Item, Inventory, Weapon, Armor, Potion
+from src.models import Item, Inventory, MiscItem, Weapon, Armor, Potion
 
 
 def test_valid_objects():
-    item = Item(1, "miecz", 2.5, 30, "Rare")
+    item = MiscItem(1, "miecz", 2.5, 30, "Rare")
     inventory = Inventory(10)
     inventory.add_item(item)
 
@@ -17,7 +17,7 @@ def test_valid_objects():
 
 def test_invalid_rarity_is_rejected():
     try:
-        Item(2, "potka", 0.2, 5, "Uncommon")
+        MiscItem(2, "potka", 0.2, 5, "Uncommon")
     except ValueError:
         return
     assert False, "przedmiot powinien odrzucać rzadkość spoza danego zestawu"
@@ -25,9 +25,9 @@ def test_invalid_rarity_is_rejected():
 
 def test_items_can_be_sorted():
     items = [
-        Item(1, "c", 0.1, 100, "Epic"),
-        Item(2, "a", 0.2, 2, "Common"),
-        Item(3, "b", 4, 25, "Rare"),
+        MiscItem(1, "c", 0.1, 100, "Epic"),
+        MiscItem(2, "a", 0.2, 2, "Common"),
+        MiscItem(3, "b", 4, 25, "Rare"),
     ]
 
     items.sort()
@@ -36,14 +36,14 @@ def test_items_can_be_sorted():
 
 def test_inventory_round_trip():
     original = Inventory(12)
-    original.add_item(Item(1, "luk", 1.5, 20, "Rare"))
+    original.add_item(MiscItem(1, "luk", 1.5, 20, "Rare"))
     original.add_item(Weapon(2, "miecz", 2, 40, "Epic", 15))
 
     saved_data = original.to_dict()
     restored = Inventory.from_dict(saved_data)
 
     assert original == restored
-    assert isinstance(restored.items[1], Weapon)
+    assert type(restored.items[1]) is Weapon
 
 
 def test_subclasses_use_their_own_value_calculation():

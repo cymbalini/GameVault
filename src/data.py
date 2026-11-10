@@ -44,7 +44,7 @@ class JsonStorage:
         try:
             with open(self.file_path, "r", encoding="utf-8") as file:
                 state = json.load(file)
-            if not isinstance(state, dict):
+            if type(state) is not dict:
                 raise ValueError("Niepoprawny format zapisu.")
 
             gold = state.get("gold", 0)
@@ -54,7 +54,7 @@ class JsonStorage:
                 state["gold_hash"] = self._gold_hash(0)
                 self.save(state)
 
-            if not isinstance(state.get("inventory"), list):
+            if type(state.get("inventory")) is not list:
                 state["inventory"] = []
             return state
         except (json.JSONDecodeError, OSError, ValueError, AttributeError):
@@ -75,7 +75,7 @@ class JsonStorage:
             try:
                 with open(self.backup_path, "r", encoding="utf-8") as file:
                     state = json.load(file)
-                if isinstance(state, dict):
+                if type(state) is dict:
                     print("Pomyślnie przywrócono dane z kopii zapasowej.")
                     self.save(state, make_backup=False)
                     return state

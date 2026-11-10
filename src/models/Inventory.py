@@ -1,7 +1,7 @@
 from .Item import Item
 
 
-class Inventory:
+class HeroInventoryManager:
 
     def __init__(self, max_weight_kg):
         if float(max_weight_kg) <= 0:
@@ -22,9 +22,9 @@ class Inventory:
         return sum(item.weight_kg for item in self._items)
 
     def add_item(self, item):
-        if not isinstance(item, Item):
-            raise TypeError("Do ekwipunku można dodać tylko obiekt Item.")
-
+        power_method = getattr(item, "calculate_effective_power", None)
+        if not hasattr(item, "weight_kg") or not callable(power_method):
+            raise TypeError("Przedmiot nie realizuje kontraktu Item.")
         new_weight = self.total_weight_kg + item.weight_kg
         if new_weight > self._max_weight_kg:
             raise ValueError(
@@ -32,6 +32,9 @@ class Inventory:
                 f"/ {self._max_weight_kg:.2f} kg."
             )
         self._items.append(item)
+
+    def calculate_total_combat_power(self) -> float:
+        return sum(item.calculate_effective_power() for item in self._items)
 
     def find_by_rarity(self, rarity):
         return [item for item in self._items if item.rarity == rarity]
@@ -47,12 +50,17 @@ class Inventory:
 
     @classmethod
     def from_dict(cls, data):
-        inventory = cls(data["max_weight_kg"])
+        manager = cls(data["max_weight_kg"])
         for item_data in data["items"]:
-            inventory.add_item(Item.from_dict(item_data))
-        return inventory
+            manager.add_item(Item.from_dict(item_data))
+        return manager
 
     def __eq__(self, other):
-        if not isinstance(other, Inventory):
+        if type(self) is not type(other):
             return NotImplemented
         return self.to_dict() == other.to_dict()
+
+
+class Inventory(HeroInventoryManager):
+    """Starsza nazwa menedżera, zachowana dla zgodności z testami modeli."""
+    pass

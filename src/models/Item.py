@@ -1,9 +1,11 @@
+from abc import ABC, abstractmethod
 import math
 
 
-class Item:
+class Item(ABC):
 
     RARITIES = {"Common", "Rare", "Epic", "Legendary"}
+    TYPE_NAME = "item"
 
     def __init__(self, item_id, name, weight_kg, gold_value, rarity):
         weight_kg = float(weight_kg)
@@ -49,54 +51,49 @@ class Item:
     def estimated_value(self):
         return self.calculate_gold_value()
 
+    @abstractmethod
+    def calculate_effective_power(self) -> float:
+        pass
+
     def calculate_gold_value(self):
         return self._gold_value
 
     def to_dict(self):
         return {
+            "type": self.TYPE_NAME,
             "item_id": self._item_id,
             "name": self._name,
             "weight_kg": self._weight_kg,
             "gold_value": self._gold_value,
             "rarity": self._rarity,
-            "item_type": self.item_type,
         }
 
     @classmethod
     def from_dict(cls, data):
-        item_type = data.get("item_type", "Item")
-        item_classes = {"Item": Item}
+        from . import ITEM_REGISTRY
 
-        # Importujemy podklasy tutaj, żeby uniknąć wzajemnych importów modułów.
-        from .Weapon import Weapon
-        from .Armor import Armor
-        from .Potion import Potion
-        item_classes.update({"Weapon": Weapon, "Armor": Armor, "Potion": Potion})
-
-        item_class = item_classes.get(item_type)
+        item_type = str(data.get("type", data.get("item_type", "other"))).lower()
+        if item_type in {"item", "miscitem"}:
+            item_type = "other"
+        item_class = ITEM_REGISTRY.get(item_type)
         if item_class is None:
-            raise ValueError("Nieznany typ przedmiotu.")
+            raise ValueError(f"Nieznany typ przedmiotu: {item_type!r}.")
+        return item_class.from_dict(data)
 
-        extra_values = []
-        if item_type == "Weapon":
-            extra_values = [data["damage"]]
-        elif item_type == "Armor":
-            extra_values = [data["defense"]]
-        elif item_type == "Potion":
-            extra_values = [data["healing_power"]]
-        return item_class(
+    @classmethod
+    def _base_values(cls, data):
+        return (
             data["item_id"], data["name"], data["weight_kg"],
-            data["gold_value"], data["rarity"],
-            *extra_values
+            data["gold_value"], data["rarity"]
         )
 
     def __eq__(self, other):
-        if not isinstance(other, Item):
+        if type(self) is not type(other):
             return NotImplemented
         return self.to_dict() == other.to_dict()
 
     def __lt__(self, other):
-        if not isinstance(other, Item):
+        if not hasattr(other, "calculate_gold_value"):
             return NotImplemented
         return (self.calculate_gold_value(), self.item_id) < (
             other.calculate_gold_value(), other.item_id
@@ -104,5 +101,3 @@ class Item:
 
     def __str__(self):
         return f"{self._name} ({self._rarity})"
-
-
