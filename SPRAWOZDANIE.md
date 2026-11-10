@@ -1,97 +1,60 @@
-# Sprawozdanie z Zadania Laboratoryjnego nr 3
+# Sprawozdanie z Zadania 3 – GameVault
+
 **Przedmiot:** Programowanie w języku Python (`IwIK-S1`)  
-**Projekt:** GameVault  
-**Zespół (Autorzy):**  
-1. Krzysztof Nowak (nr albumu: 164853) – login Git: `cymbalini`
-**Data oddania:** 27.10.2026  
+**Temat:** Dziedziczenie, polimorfizm i zarządzanie ekwipunkiem RPG  
+**Autor:** Krzysztof Nowak  
+**Data:** 10.11.2026
 
 ---
 
-## 1. Cel i Zakres Inżynierski Zadania
-* zapis atomowy oraz tworzenie i odzyskiwanie backupow
----
+## 1. Cel zadania
 
-## 2. Architektura Rozwiązania i Struktura Modułów
+Celem było rozbudowanie GameVault o hierarchię klas przedmiotów i zastosowanie polimorfizmu. Program pozwala dodawać przedmioty do plecaka z kontrolą limitu wagi, zapisywać stan gry, eksportować ekwipunek do CSV oraz sprzedawać cały ekwipunek za złoto.
 
-* `src/data.py` – tymczasowa baza danych
-* `src/validators.py` – sprawdzanie user inputa
-* `src/services.py` – logika programu
-* `src/main.py` – plik główny
-* `src/data` - pliki json oraz export csv oraz backupy
+## 2. Struktura programu
 
----
+* `src/models/Item.py` – klasa bazowa `Item`, walidacja danych i wspólna metoda wyceny.
+* `src/models/Weapon.py` – broń z obrażeniami.
+* `src/models/Armor.py` – pancerz z poziomem ochrony.
+* `src/models/Potion.py` – mikstura z siłą leczenia.
+* `src/models/Inventory.py` – agregat przechowujący przedmioty i pilnujący maksymalnej wagi.
+* `src/repository.py` – `GameRepository`, który zarządza kolekcją przedmiotów i stanem złota.
+* `src/data.py` – `JsonStorage`, zapis atomowy, kopia zapasowa i kontrola sumy złota.
+* `src/CsvExporter.py` – eksport przedmiotów do CSV, także gdy mają różne pola.
+* `src/validators.py` – pobieranie i sprawdzanie danych wpisywanych w konsoli.
+* `src/services.py` – `GameVaultApp`, menu i obsługa działań użytkownika.
+* `src/tests/test_models.py` – testy encji, agregatu, sortowania i serializacji.
 
-## 3. Kluczowy Fragment Kodu i Uzasadnienie Inżynierskie
-*(Wybrany, najważniejszy lub najciekawszy fragment kodu źródłowego zrealizowany w tym etapie – maksymalnie 15–25 linii).*
+Dane gry są zapisywane w `src/data/inventory.json`, kopia zapasowa w `src/data/backup/inventory.json.bak`, a eksport w `src/exports/loot_table.csv`.
+
+## 3. Dziedziczenie i polimorfizm
+
+`Weapon`, `Armor` i `Potion` dziedziczą po `Item`. Każda podklasa nadpisuje `calculate_gold_value()`: broń uwzględnia obrażenia, pancerz poziom ochrony, a mikstura siłę leczenia. Ekwipunek, sortowanie, sprzedaż i eksport korzystają ze wspólnego interfejsu przedmiotów.
+
+Przykład nadpisania metody:
 
 ```python
-def generate_gold_hash(gold_value: int) -> str:
-    return hashlib.sha256(f"{gold_value}{SECRET_SALT}".encode('utf-8')).hexdigest()
-
+class Weapon(Item):
+    def calculate_gold_value(self):
+        return self.gold_value + self.damage * 2
 ```
 
-**Uzasadnienie wyboru:**  
-hashowanie jest wazne by nikt nie mogl swobodnie zmieniac zlota w plecaku
+`Inventory.add_item()` sprawdza wagę przed dodaniem. Jeśli przedmiot przekroczyłby `max_weight_kg`, metoda zgłasza `ValueError`. `GameRepository` zapisuje zmiany i nie umieszcza tej logiki w obsłudze menu.
 
----
+## 4. Funkcje programu
 
-## 4. Scenariusze Weryfikacji i Wyniki Testów
-*(Dowód działania programu w konsoli. Należy przedstawić przynajmniej dwa scenariusze).*
+Menu pozwala wyświetlić, filtrować i sortować ekwipunek, dodawać przedmioty oraz złoto, eksportować CSV, przywrócić zapis z kopii i sprzedać cały ekwipunek. Opcja 10 sprzedaje wszystkie przedmioty według ich wyceny, dodaje uzyskaną kwotę do złota i zapisuje pusty ekwipunek. Każda modyfikacja stanu tworzy kopię poprzedniego zapisu.
 
-### Scenariusz A: Ścieżka poprawna (Happy Path)
-* **Dane wejściowe:** 2
-* **Oczekiwany i uzyskany wynik:** posiadanie i wyswietlenie pliku savegames
+Eksport CSV zbiera kolumny ze wszystkich typów przedmiotów, dlatego wiersze broni, pancerza i mikstury mogą zawierać różne dodatkowe pola.
+
+## 5. Weryfikacja
+
+Testy modeli uruchamia się poleceniem:
+
 ```text
-Wybierz opcję [1-7]: 2
-
-========================================
-INVENTORY
-========================================
----------------------------------------------------------------------------------------------------------
-|name                |count               |weight              |rarity              |value               |
----------------------------------------------------------------------------------------------------------
-|a                   |2                   |12.0                |common              |12.0                |
----------------------------------------------------------------------------------------------------------
-total 24.0 of weight points in inventory.
-Wybierz opcję [1-7]: 
+python src/tests/test_models.py
 ```
 
-### Scenariusz B: Obsługa błędów i wartości brzegowych
-* **Dane wejściowe (błędne): 2 i brak pliku savegames
-* **Reakcja programu:** 
-```text
-========================================
- SYSTEM ZARZĄDZANIA KAWIARNIĄ GameVault
-========================================
-1. Wyświetl aktualne menu
-2. Wyswietl aktualny ekwipunek
-3. Wyswietl filtrowany ekwipunek przez rzadkosc
-4. Wyswietl aktualny ekwipunek filtrowany przez kategorie
-5. Dodaj item
-6. Eksport danych do csv
-7. Wyjście z programu
-----------------------------------------
-Wybierz opcję [1-7]: 2
-Brak pliku zapisu JSON.
-Tworzenie pustej bazy danych.
+Testy sprawdzają poprawne tworzenie obiektów, odrzucenie niedozwolonej rzadkości, sortowanie przedmiotów, serializację i odtworzenie ekwipunku zawierającego podklasę `Weapon` oraz wyceny polimorficzne.
 
-========================================
-INVENTORY
-========================================
----------------------------------------------------------------------------------------------------------
-|name                |count               |weight              |rarity              |value               |
----------------------------------------------------------------------------------------------------------
----------------------------------------------------------------------------------------------------------
-total 0.0 of weight points in inventory.
-
-```
-
----
-
-## 5. Podział Pracy w Zespole
-*(Precyzyjne i uczciwe rozliczenie wkładu obu członków zespołu – weryfikowane z historią commitów `git log`).*
-* **Krzysztof Nowak:**
-  * Odpowiedzialność za moduły: `src/...`
-  * Zaimplementowane funkcjonalności: *
-  * Liczba wykonanych commitów: *
-
+Sprawdzono także eksport mieszanej listy `Item`, `Weapon`, `Armor` i `Potion` oraz sprzedaż przedmiotów z naliczeniem złota. Testy modeli i te sprawdzenia zakończyły się powodzeniem.

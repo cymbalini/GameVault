@@ -1,142 +1,118 @@
-import csv
+import hashlib
 import json
 import os
 import shutil
 import tempfile
-import hashlib
 from pathlib import Path
-from typing import Any, Callable
-from operator import itemgetter
-
-DB_PATH = Path('data/json/savegame.json')
-BACKUP_PATH = Path('data/backup/savegame.json.bak')
-CSV_PATH = Path('data/export/lootTable.csv')
-SECRET_SALT = "GameVault_RPG_Salt_123!"
-
-def generate_gold_hash(gold_value: int) -> str:
-    return hashlib.sha256(f"{gold_value}{SECRET_SALT}".encode('utf-8')).hexdigest()
-
-def getGameState() -> dict:
-    if not DB_PATH.exists():
-        return recover_game_state()
-
-    try:
-        with open(DB_PATH, 'r', encoding='utf-8') as file:
-            data = json.load(file)
 
 
-        gold = data.get("gold", 0)
-        stored_hash = data.get("gold_hash", "")
+class JsonStorage:
 
-        if generate_gold_hash(gold) != stored_hash:
-            print("UWAGA: Wykryto ręczną modyfikację złota! Złoto zostaje wyzerowane.")
-            data["gold"] = 0
-            data["gold_hash"] = generate_gold_hash(0)
-            saveGameState(data)
+    SECRET_SALT = "GameVault_RPG_Salt_123!"
 
-        if "inventory" not in data or not isinstance(data["inventory"], list):
-            data["inventory"] = []
+    def __init__(self, file_path="data/inventory.json",
+                 backup_path="data/backup/inventory.json.bak",
+                 old_file_path="data/json/savegame.json"):
+        source_folder = Path(__file__).resolve().parent
+        self.file_path = self._make_absolute(file_path, source_folder)
+        self.backup_path = self._make_absolute(backup_path, source_folder)
+        self.old_file_path = self._make_absolute(old_file_path, source_folder)
 
-        return data
-    except (json.JSONDecodeError, IOError, AttributeError):
-        print("Błąd odczytu pliku zapisu, przywracanie...")
-        return recover_game_state()
+    def _make_absolute(self, path, source_folder):
+        path = Path(path)
+        if not path.is_absolute():
+            path = source_folder / path
+        return path
 
-def saveGameState(state: dict) -> None:
-    try:
-        atomicWrite(
-            DB_PATH,
+    def _gold_hash(self, gold):
+        text = f"{gold}{self.SECRET_SALT}"
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def load(self):
+        if not self.file_path.exists():
+            if self.old_file_path.exists():
+                try:
+                    with open(self.old_file_path, "r", encoding="utf-8") as file:
+                        old_state = json.load(file)
+                    print("Przenoszenie starego zapisu do data/inventory.json.")
+                    self.save(old_state, make_backup=False)
+                    return old_state
+                except (json.JSONDecodeError, OSError):
+                    print("Nie udało się odczytać starego zapisu.")
+            return self.recover()
+
+        try:
+            with open(self.file_path, "r", encoding="utf-8") as file:
+                state = json.load(file)
+            if not isinstance(state, dict):
+                raise ValueError("Niepoprawny format zapisu.")
+
+            gold = state.get("gold", 0)
+            if state.get("gold_hash") != self._gold_hash(gold):
+                print("UWAGA: Wykryto zmianę złota. Złoto zostaje wyzerowane.")
+                state["gold"] = 0
+                state["gold_hash"] = self._gold_hash(0)
+                self.save(state)
+
+            if not isinstance(state.get("inventory"), list):
+                state["inventory"] = []
+            return state
+        except (json.JSONDecodeError, OSError, ValueError, AttributeError):
+            print("Błąd odczytu zapisu. Przywracanie kopii...")
+            return self.recover()
+
+    def save(self, state, make_backup=True):
+        state["gold_hash"] = self._gold_hash(state.get("gold", 0))
+        self._atomic_write(
+            self.file_path,
             lambda file: json.dump(state, file, indent=4),
-            makeBackup=True,
-            backupPath=BACKUP_PATH
+            make_backup,
+            self.backup_path
         )
-    except Exception:
-        print("Błąd przy zapisywaniu stanu gry.")
-def getInventory() -> list:
-    return getGameState().get("inventory", [])
 
-def addToInventoryToJSON(entry: dict[str, Any]) -> None:
-    state = getGameState()
-    state["inventory"].append(entry)
-    saveGameState(state)
+    def recover(self):
+        if self.backup_path.exists():
+            try:
+                with open(self.backup_path, "r", encoding="utf-8") as file:
+                    state = json.load(file)
+                if isinstance(state, dict):
+                    print("Pomyślnie przywrócono dane z kopii zapasowej.")
+                    self.save(state, make_backup=False)
+                    return state
+            except (json.JSONDecodeError, OSError):
+                print("Nie udało się odczytać kopii zapasowej.")
 
-def getGold() -> int:
-    return getGameState().get("gold", 0)
+        print("Tworzenie pustego zapisu gry.")
+        state = {"gold": 0, "gold_hash": self._gold_hash(0), "inventory": []}
+        self.save(state, make_backup=False)
+        return state
 
-def modifyGold(amount: int) -> None:
-    state = getGameState()
-    current_gold = state.get("gold", 0)
-    new_gold = max(0, current_gold + amount)
-    state["gold"] = new_gold
-    state["gold_hash"] = generate_gold_hash(new_gold)
-    saveGameState(state)
+    def _atomic_write(self, path, write_function, make_backup=True, backup_path=None):
+        path = Path(path).resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
 
-def exportToCSV() -> None:
-    inventory = getInventory()
-    if not inventory:
-        print("Ekwipunek jest pusty, nic do wyeksportowania.")
-        return
+        if make_backup and path.exists():
+            backup = Path(backup_path).resolve() if backup_path else path.with_suffix(path.suffix + ".bak")
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copy2(path, backup)
+            except OSError:
+                print("Nie udało się utworzyć kopii zapasowej.")
 
-    sortedInventory = sorted(inventory, key=itemgetter('rarity'))
-    fieldnames = list(sortedInventory[0].keys())
-
-    def write_csv(file):
-        writer = csv.DictWriter(file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(sortedInventory)
-
-    try:
-        atomicWrite(CSV_PATH, write_csv, mode='w', encoding='utf-8', makeBackup=False)
-        print("Eksport do pliku CSV zakończony pomyślnie.")
-    except Exception:
-        print("Coś poszło nie tak podczas eksportu CSV.")
-
-def recover_game_state() -> dict:
-    if BACKUP_PATH.exists():
+        temporary = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent, delete=False
+        )
+        temporary_path = Path(temporary.name)
         try:
-            with open(BACKUP_PATH, 'r', encoding='utf-8') as bak_file:
-                recovered_data = json.load(bak_file)
-            print("Pomyślnie przywrócono dane.")
-            atomicWrite(DB_PATH, lambda f: json.dump(recovered_data, f, indent=4), makeBackup=False)
-            return recovered_data
-        except (json.JSONDecodeError, IOError):
-            print("Błąd pliku kopii zapasowej.")
-
-    print("Tworzenie pustej bazy danych.")
-    empty_data = {"gold": 0, "gold_hash": generate_gold_hash(0), "inventory": []}
-    atomicWrite(DB_PATH, lambda f: json.dump(empty_data, f, indent=4), makeBackup=False)
-    return empty_data
-
-
-def atomicWrite(filepath: str | Path, writeFunc: Callable[[Any], None], mode: str = 'w', encoding: str = 'utf-8',
-                makeBackup: bool = True, backupPath: str | Path = None) -> None:
-    path = Path(filepath).resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if makeBackup and path.exists():
-        if backupPath:
-            backupFile = Path(backupPath).resolve()
-            backupFile.parent.mkdir(parents=True, exist_ok=True)
-        else:
-            backupFile = path.with_suffix(path.suffix + '.bak')
-
-        try:
-            shutil.copy2(path, backupFile)
+            write_function(temporary)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+            temporary.close()
+            os.replace(temporary_path, path)
         except Exception:
-            print("Nie udało się stworzyć pliku zapasowego")
+            temporary.close()
+            if temporary_path.exists():
+                temporary_path.unlink()
+            raise
 
-    kwargs = {'encoding': encoding} if 'b' not in mode else {}
-    temp_file = tempfile.NamedTemporaryFile(mode=mode, dir=path.parent, delete=False, **kwargs)
-    temp_path = Path(temp_file.name)
 
-    try:
-        writeFunc(temp_file)
-        temp_file.flush()
-        os.fsync(temp_file.fileno())
-        temp_file.close()
-        os.replace(temp_path, path)
-    except Exception:
-        temp_file.close()
-        if temp_path.exists():
-            temp_path.unlink()
-        raise

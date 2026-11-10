@@ -1,10 +1,10 @@
-from services import *
+from services import GameVaultApp
+
 
 def main():
-    running = True
-    printMenu()
-    while running:
-        running = handleMenuChoice("Wybierz opcję [1-8]: ")
+    app = GameVaultApp()
+    app.run()
+
 
 if __name__ == "__main__":
     main()

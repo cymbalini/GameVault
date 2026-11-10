@@ -1,77 +1,66 @@
-def getIntInput(
-    prompt: str,
-    min_val: int = None,
-    max_val: int = None
-) -> int:
-    """Pobiera int z walidacją."""
-    while True:
-        raw = input(prompt).strip()
-        if not raw:
-            print("Błąd: Pusta wartość.")
-            continue
-        try:
-            val = int(raw)
-            if min_val is not None and val < min_val:
-                print(f"Błąd: Wartość < {min_val}")
-                continue
-            if max_val is not None and val > max_val:
-                print(f"Błąd: Wartość > {max_val}")
-                continue
-            return val
-        except ValueError:
-            print(f"Błąd: '{raw}' to nie int!")
+class InputValidator:
 
-def getFloat(
-    prompt: str,
-    min_val: float = None,
-    max_val: float = None
-) -> float:
-    """Pobiera int z walidacją."""
-    while True:
-        raw = input(prompt).strip()
-        if not raw:
-            print("Błąd: Pusta wartość.")
-            continue
-        try:
-            val = float(raw)
-            if min_val is not None and val < min_val:
-                print(f"Błąd: Wartość < {min_val}")
-                continue
-            if max_val is not None and val > max_val:
-                print(f"Błąd: Wartość > {max_val}")
-                continue
-            return val
-        except ValueError:
-            print(f"Błąd: '{raw}' to nie float!")
+    RARITIES = ["Common", "Rare", "Epic", "Legendary"]
+    CATEGORIES = [
+        "item_id", "name", "weight_kg", "gold_value", "estimated_value",
+        "rarity", "item_type"
+    ]
+    ITEM_TYPES = ["Item", "Weapon", "Armor", "Potion"]
 
-def getNonEmptyString(
-        prompt: str
-) -> str:
-    while True:
-        raw = input(prompt).strip()
-        if not raw:
-            print("Błąd: Pusta wartość.")
-            continue
-        else:
-            return raw
+    def getInt(self, prompt, min_value=None, max_value=None):
+        while True:
+            raw = input(prompt).strip()
+            try:
+                value = int(raw)
+                if min_value is not None and value < min_value:
+                    print(f"Błąd: wartość musi wynosić co najmniej {min_value}.")
+                    continue
+                if max_value is not None and value > max_value:
+                    print(f"Błąd: wartość nie może być większa niż {max_value}.")
+                    continue
+                return value
+            except ValueError:
+                print("Błąd: wpisz liczbę całkowitą.")
 
+    def getFloat(self, prompt, min_value=None, max_value=None):
+        while True:
+            raw = input(prompt).strip().replace(",", ".")
+            try:
+                value = float(raw)
+                if min_value is not None and value < min_value:
+                    print(f"Błąd: wartość musi wynosić co najmniej {min_value}.")
+                    continue
+                if max_value is not None and value > max_value:
+                    print(f"Błąd: wartość nie może być większa niż {max_value:.2f}.")
+                    continue
+                return value
+            except ValueError:
+                print("Błąd: wpisz liczbę.")
 
-def getValidCategory(prompt: str) -> str:
-    categories = ["name","id","weight","count"]
-    while True:
-        raw = input(prompt).strip().lower()
-        if raw not in categories:
-            print("podaj poprawna kategorie.")
-            continue
-        else:
-            return raw
+    def getNonEmptyString(self, prompt):
+        while True:
+            value = input(prompt).strip()
+            if value:
+                return value
+            print("Błąd: pole nie może być puste.")
 
-def getValidRarity(prompt:str)-> str:
-    rarities = ["common", "uncommon","rare","epic","legendary"]
-    while True:
-        raw = input(prompt).strip().lower()
-        if raw not in rarities:
-            print("podaj poprawe rarity.")
-            continue
-        else:
-            return raw
+    def getCategory(self, prompt):
+        while True:
+            value = input(prompt).strip().lower()
+            if value in self.CATEGORIES:
+                return value
+            print("Podaj jedną z dostępnych właściwości przedmiotu.")
+
+    def getRarity(self, prompt):
+        while True:
+            value = input(prompt).strip().title()
+            if value in self.RARITIES:
+                return value
+            print("Podaj rzadkość: Common, Rare, Epic lub Legendary.")
+
+    def getItemType(self, prompt):
+        while True:
+            value = input(prompt).strip().title()
+            if value in self.ITEM_TYPES:
+                return value
+            print("Wybierz typ: Item, Weapon, Armor lub Potion.")
