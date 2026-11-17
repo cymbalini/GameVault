@@ -39,7 +39,7 @@ Item (ABC)
 
 `Item` przechowuje `item_id`, `name`, `weight_kg`, `gold_value` i `rarity`. Rzadkość musi być jedną z wartości `Common`, `Rare`, `Epic` lub `Legendary`. Klasa bazowa wymaga implementacji `calculate_effective_power()`.
 
-`Weapon` oblicza moc na podstawie obrażeń, mnożnika trafienia i trwałości. `Armor` uwzględnia klasę obrony i odporność na magię. `Potion` używa siły leczenia, a `MiscItem` zwraca moc równą zero. `HeroInventoryManager` sumuje wynik przez wywołanie tej samej metody na każdym elemencie kolekcji, bez rozpoznawania jego konkretnej klasy.
+`Weapon` oblicza moc na podstawie obrażeń, mnożnika trafienia i trwałości. `Armor` uwzględnia klasę obrony i odporność na magię. `Potion` używa siły leczenia, a `MiscItem` zwraca moc równą zero. Podklasy nadpisują też `get_display_name()`, aby widok pokazywał np. nazwę broni z obrażeniami i pancerza z poziomem ochrony. `HeroInventoryManager` sumuje wynik przez wywołanie tej samej metody na każdym elemencie kolekcji, bez rozpoznawania jego konkretnej klasy.
 
 Menedżer pilnuje limitu `max_weight_kg` w `add_item()`. Po przekroczeniu limitu zgłasza `ValueError` i nie zmienia ekwipunku. Udostępnia również filtrowanie, sortowanie, obliczanie sumarycznej mocy oraz serializację kolekcji.
 

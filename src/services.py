@@ -54,14 +54,14 @@ class GameVaultApp:
         print("\n" + "=" * 40)
         print("EKWIPUNEK BOHATERA")
         print("=" * 40)
-        print(f"{'ID':<6}{'Typ':<10}{'Nazwa':<20}{'Waga kg':<12}{'Rzadkość':<14}{'Wycena':<12}")
-        print("-" * 74)
+        print(f"{'ID':<6}{'Typ':<10}{'Przedmiot':<30}{'Waga kg':<12}{'Rzadkość':<14}{'Wycena':<12}")
+        print("-" * 84)
         for item in items:
-            print(f"{item.item_id:<6}{item.item_type:<10}{item.name:<20}{item.weight_kg:<12.2f}"
+            print(f"{item.item_id:<6}{item.item_type:<10}{item.get_display_name():<30}{item.weight_kg:<12.2f}"
                   f"{item.rarity:<14}{item.estimated_value:<12.2f}")
 
         weight = sum(item.weight_kg for item in items)
-        print("-" * 74)
+        print("-" * 84)
         print(f"Łączna waga pokazanych przedmiotów: {weight:.2f} kg")
         print(f"Waga całego plecaka: {self.repository.getWeight():.2f} / {self.MAX_WEIGHT_KG} kg")
         print(f"Potencjał bojowy: {self.repository.getInventory().calculate_total_combat_power():.2f}")

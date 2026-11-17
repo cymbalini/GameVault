@@ -58,6 +58,9 @@ class Item(ABC):
     def calculate_gold_value(self):
         return self._gold_value
 
+    def get_display_name(self):
+        return self.name
+
     def to_dict(self):
         return {
             "type": self.TYPE_NAME,

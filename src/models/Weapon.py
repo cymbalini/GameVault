@@ -42,6 +42,9 @@ class Weapon(Item):
     def calculate_gold_value(self):
         return self.gold_value + self.base_damage * 2
 
+    def get_display_name(self):
+        return f"{self.name} (obrażenia: {self.base_damage:g})"
+
     def to_dict(self):
         data = super().to_dict()
         data["base_damage"] = self.base_damage

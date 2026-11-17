@@ -21,6 +21,9 @@ class Potion(Item):
     def calculate_gold_value(self):
         return self.gold_value + self.healing_power
 
+    def get_display_name(self):
+        return f"{self.name} (leczenie: {self.healing_power})"
+
     def to_dict(self):
         data = super().to_dict()
         data["healing_power"] = self.healing_power

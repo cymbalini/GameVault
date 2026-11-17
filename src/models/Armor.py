@@ -40,6 +40,9 @@ class Armor(Item):
     def calculate_gold_value(self):
         return self.gold_value + self.defense_class * 1.5
 
+    def get_display_name(self):
+        return f"{self.name} (ochrona: {self.defense_class})"
+
     def to_dict(self):
         data = super().to_dict()
         data["defense_class"] = self.defense_class
