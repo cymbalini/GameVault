@@ -17,7 +17,7 @@ class GameVaultApp:
         self.print_menu()
         running = True
         while running:
-            choice = self.validator.getNonEmptyString("Wybierz opcję [1-10]: ")
+            choice = self.validator.getNonEmptyString("Wybierz opcję [1-11]: ")
             running = self.handle_choice(choice)
 
     def handle_choice(self, choice):
@@ -44,8 +44,10 @@ class GameVaultApp:
                 self.repository.recover()
             case "10":
                 self.sell_all_items()
+            case "11":
+                self.show_inventory_statistics()
             case _:
-                print("Błąd: nieznana opcja. Wybierz wartość od 1 do 10.")
+                print("Błąd: nieznana opcja. Wybierz wartość od 1 do 11.")
         return True
     def show_inventory(self, items=None):
         if items is None:
@@ -137,11 +139,24 @@ class GameVaultApp:
 
     def sell_all_items(self):
         item_count, total_value, gold_total = self.repository.sellAllItems()
-        if item_count != 0:
+        if item_count == 0:
             print("Ekwipunek jest pusty. Nie ma czego sprzedać.")
             return
         print(f"Sprzedano {item_count} przedmiotów za {total_value:.2f} złota.")
         print(f"Nowy stan złota: {gold_total:.2f}.")
+
+    def show_inventory_statistics(self):
+        statistics = self.repository.getInventoryStatistics()
+        if not statistics:
+            print("Brak przedmiotów do podsumowania.")
+            return
+
+        print("\nPODSUMOWANIE WEDŁUG RZADKOŚCI")
+        print(f"{'Rzadkość':<14}{'Sztuki':<10}{'Waga kg':<12}{'Suma złota':<14}{'Średnia wartość':<16}")
+        for row in statistics:
+            print(f"{row['rarity']:<14}{row['item_count']:<10}"
+                  f"{row['total_weight_kg']:<12.2f}{row['total_gold_value']:<14.2f}"
+                  f"{row['average_gold_value']:<16.2f}")
 
     def print_menu(self):
         print("\n" + "=" * 40)
@@ -156,5 +171,6 @@ class GameVaultApp:
         print("7. Dodaj złoto")
         print("8. Wyjście")
         print("9. Przywróć zapis z kopii")
-        # print("10. Sprzedaj cały ekwipunek")
+        print("10. Sprzedaj cały ekwipunek")
+        print("11. Statystyki według rzadkości")
         print("=" * 40)

@@ -1,85 +1,82 @@
-# Sprawozdanie z Zadania 3 – GameVault
+# Sprawozdanie z Zadania 4 – GameVault i SQLite
 
 **Przedmiot:** Programowanie w języku Python (`IwIK-S1`)  
-**Temat:** Dziedziczenie, polimorfizm i menedżer ekwipunku  
+**Temat:** Relacyjna baza danych SQLite  
 **Autor:** Krzysztof Nowak  
-**Data:** 10.11.2026
+**Data:** 17.11.2026
 
 ---
 
 ## 1. Cel zadania
 
-Projekt GameVault został rozbudowany o abstrakcyjną hierarchię przedmiotów RPG. Wspólna klasa bazowa określa kontrakt przedmiotu, podklasy obliczają własny potencjał bojowy, a menedżer zarządza ekwipunkiem i jego udźwigiem. Program zapisuje i odtwarza typy przedmiotów w JSON, eksportuje CSV oraz pozwala sprzedać cały ekwipunek.
+Celem było zastąpienie plikowego zapisu stanu gry relacyjną bazą SQLite. Ekwipunek nadal korzysta z hierarchii `Item`, `Weapon`, `Armor` i pozostałych podklas, a nowe repozytorium zapisuje przedmioty i złoto w tabelach połączonych relacją klucza obcego.
 
 ## 2. Struktura programu
 
-* `src/models/Item.py` – abstrakcyjna klasa bazowa `Item`, wspólne dane i kontrakt mocy bojowej.
-* `src/models/Weapon.py` – broń z obrażeniami, mnożnikiem trafienia i trwałością.
-* `src/models/Armor.py` – pancerz z klasą obrony, slotem i odpornością na magię.
-* `src/models/Potion.py` – mikstura z siłą leczenia.
-* `src/models/MiscItem.py` – zwykłe przedmioty, w tym starsze wpisy zapisane jako `Item`.
-* `src/models/Inventory.py` – `HeroInventoryManager` oraz zachowana nazwa `Inventory` dla testów modeli.
-* `src/models/__init__.py` – rejestr klas używany przy odtwarzaniu obiektów z JSON.
-* `src/repository.py` – `GameRepository`, który oddziela operacje na ekwipunku i złocie od menu.
-* `src/data.py` – `JsonStorage`, zapis atomowy, kopie zapasowe i kontrola sumy złota.
-* `src/CsvExporter.py` – eksport przedmiotów o różnych polach do CSV.
-* `src/validators.py` i `src/services.py` – walidacja wejścia i obsługa CLI.
-* `src/tests/test_manager.py` – testy menedżera wymagane w bieżącym etapie.
-* `src/tests/test_models.py` – dodatkowe testy modeli.
+* `src/data.py` – klasa `SQLiteStorage`: tworzenie tabel, odczyt, zapis transakcyjny, kopia bazy oraz jednorazowa migracja starego JSON.
+* `src/repository.py` – `GameRepository`, który mapuje rekordy bazy na agregat ekwipunku.
+* `src/models/` – klasy domenowe `Item`, `Weapon`, `Armor`, `Potion`, `MiscItem` i `HeroInventoryManager`.
+* `src/CsvExporter.py` – eksport ekwipunku do CSV.
+* `src/services.py` i `src/validators.py` – menu CLI i walidacja danych.
+* `src/tests/test_database.py` – autotesty schematu, relacji, repozytorium i migracji SQLite.
+* `src/tests/test_manager.py` – testy menedżera oraz persystencji SQLite.
+* `src/tests/test_models.py` – testy modeli i serializacji.
 
-## 3. Hierarchia klas i polimorfizm
+Baza znajduje się w `src/data/gamevault.db`, a kopia zapasowa w `src/data/backup/gamevault.db.bak`. Przy pierwszym uruchomieniu aplikacja przenosi istniejący `src/data/inventory.json` do bazy tylko wtedy, gdy baza nie zawiera jeszcze ekwipunku. JSON jest archiwizowany jako `inventory.json.bak`. Starszy schemat SQLite `game_state`/`items` także jest przenoszony do nowych tabel.
+
+## 3. Schemat relacyjny
 
 ```text
-Item (ABC)
-├── Weapon
-├── Armor
-├── Potion
-└── MiscItem
+INVENTORIES (1) ────────< (wiele) INVENTORY_ITEMS
+  inventory_id PK             item_id       PK
+  character_name              inventory_id FK -> INVENTORIES.inventory_id
+  max_weight_kg               item_type, name, weight_kg, gold_value, rarity
+  gold, gold_hash             pola podklas: broń, pancerz, mikstura
 ```
 
-`Item` przechowuje `item_id`, `name`, `weight_kg`, `gold_value` i `rarity`. Rzadkość musi być jedną z wartości `Common`, `Rare`, `Epic` lub `Legendary`. Klasa bazowa wymaga implementacji `calculate_effective_power()`.
+Tabela `inventories` przechowuje bohatera, limit udźwigu, złoto i jego sumę kontrolną. Tabela `inventory_items` przechowuje przedmioty oraz dyskryminator `item_type`, który pozwala odtworzyć właściwą podklasę. Klucz obcy ma `ON DELETE CASCADE`, więc usunięcie ekwipunku usuwa jego przedmioty. SQL sprawdza limit większy od zera, nieujemną wagę i wartość, dodatnią ilość oraz rzadkość z dozwolonego zestawu.
 
-`Weapon` oblicza moc na podstawie obrażeń, mnożnika trafienia i trwałości. `Armor` uwzględnia klasę obrony i odporność na magię. `Potion` używa siły leczenia, a `MiscItem` zwraca moc równą zero. Podklasy nadpisują też `get_display_name()`, aby widok pokazywał np. nazwę broni z obrażeniami i pancerza z poziomem ochrony. `HeroInventoryManager` sumuje wynik przez wywołanie tej samej metody na każdym elemencie kolekcji, bez rozpoznawania jego konkretnej klasy.
+## 4. Zapis i bezpieczeństwo zapytań
 
-Menedżer pilnuje limitu `max_weight_kg` w `add_item()`. Po przekroczeniu limitu zgłasza `ValueError` i nie zmienia ekwipunku. Udostępnia również filtrowanie, sortowanie, obliczanie sumarycznej mocy oraz serializację kolekcji.
+Zmiana stanu odbywa się w transakcji SQLite: aktualizowany jest stan złota, poprzednie rekordy przedmiotów są zastępowane nową listą, a transakcja zatwierdza całość. Przed zapisem istniejąca baza jest kopiowana do pliku backupu.
 
-## 4. Menedżer i persystencja
-
-`GameRepository` przekazuje operacje między CLI a `HeroInventoryManager` i `JsonStorage`. Warstwa menu nie zarządza bezpośrednio słownikami JSON. Eksport CSV zbiera kolumny ze wszystkich przedmiotów, więc broń, pancerz i mikstura mogą mieć własne pola.
-
-JSON zapisuje dyskryminator w polu `type`, na przykład `weapon` albo `armor`. `ITEM_REGISTRY` wybiera klasę podczas `Item.from_dict()`, a `to_dict()` zapisuje pola specyficzne dla podklasy. Wczytywanie obsługuje również wcześniejsze wpisy z `item_type`, `damage` i `defense`.
-
-Opcja 10 menu sprzedaje cały ekwipunek. Menedżer/repozytorium sumuje wycenę przedmiotów, dodaje ją do złota i zapisuje pusty plecak z kopią poprzedniego stanu.
-
-## 5. Kluczowy fragment
+Wartości użytkownika są przekazywane przez parametry `?`, a nie doklejane do tekstu SQL:
 
 ```python
-@abstractmethod
-def calculate_effective_power(self) -> float:
-    pass
-
-def calculate_total_combat_power(self) -> float:
-    return sum(item.calculate_effective_power() for item in self._items)
+row = connection.execute(
+    "SELECT gold, gold_hash FROM inventories WHERE inventory_id = ?",
+    (1,)
+).fetchone()
 ```
 
-Klasa bazowa wymusza wspólną metodę, a menedżer oblicza wynik całej kolekcji przez polimorfizm. Dodanie nowej podklasy nie wymaga dopisywania warunków typów w menedżerze.
+Podobnie parametryzowane jest dodawanie rekordów. Nazwa przedmiotu zawierająca tekst podobny do SQL jest zapisywana jako zwykła wartość, a tabela pozostaje nienaruszona. Dyskryminator typu jest odczytywany przez rejestr klas, więc baza zachowuje polimorficzne typy przedmiotów.
 
-## 6. Testy i weryfikacja
+## 5. Analityka SQL
 
-Testy można uruchomić z katalogu głównego projektu:
+Opcja 11 menu prezentuje liczbę, łączną wagę i wartość przedmiotów dla każdej rzadkości. Obliczenia są wykonywane w SQLite przez relacyjne złączenie, grupowanie i agregacje:
+
+```sql
+SELECT inventory_items.rarity,
+       COUNT(inventory_items.item_id),
+       SUM(inventory_items.weight_kg),
+       AVG(inventory_items.gold_value)
+FROM inventories
+LEFT JOIN inventory_items
+  ON inventory_items.inventory_id = inventories.inventory_id
+WHERE inventories.inventory_id = ?
+GROUP BY inventory_items.rarity;
+```
+
+## 6. Weryfikacja
+
+Testy uruchamia się z katalogu głównego projektu:
 
 ```text
 python src/tests/test_manager.py
 python src/tests/test_models.py
+python src/tests/test_database.py
 ```
 
-`test_manager.py` sprawdza sumowanie mocy różnych podklas, odrzucenie przedmiotu przekraczającego udźwig, odtworzenie typów z serializacji i abstrakcyjność `Item`. `test_models.py` sprawdza także walidację, sortowanie i round-trip ekwipunku.
+`test_database.py` sprawdza dwie tabele, odrzucenie osieroconego rekordu przez klucz obcy, kaskadowe usuwanie, zapis i odczyt przez repozytorium, migrację JSON, bezpieczne przechowanie nazwy podobnej do SQL oraz wyniki grupowania i agregacji. Testy migracji używają tymczasowych plików, więc nie zmieniają właściwego zapisu gry. `test_manager.py` sprawdza polimorficzną moc i limit wagi, zapis i odczyt typów przedmiotów oraz integralność bazy.
 
-Oba zestawy testów uruchomiono pomyślnie. Sprawdzono również eksport mieszanej listy typów oraz sprzedaż całego ekwipunku.
-
-## 7. Podział Pracy w Zespole
-*(Precyzyjne i uczciwe rozliczenie wkładu obu członków zespołu – weryfikowane z historią commitów `git log`).*
-* **Krzysztof Nowak:**
-  * Odpowiedzialność za moduły: `src/...`
-  * Zaimplementowane funkcjonalności: *
-  * Liczba wykonanych commitów: * 
+`test_models.py` sprawdza walidację przedmiotów, sortowanie, dziedziczenie i odtworzenie ekwipunku z serializacji.

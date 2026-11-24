@@ -2,3 +2,5 @@
 /.idea
 /src/data/
 /src/exports/loot_table.csv
+__pycache__/
+*.py[cod]

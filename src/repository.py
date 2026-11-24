@@ -1,16 +1,18 @@
-from data import JsonStorage
+from data import SQLiteStorage
 from src.models import HeroInventoryManager, Item
 
 
 class GameRepository:
 
     def __init__(self, storage=None, max_weight_kg=200):
-        self.storage = storage or JsonStorage()
+        self.storage = storage or SQLiteStorage()
         self.max_weight_kg = float(max_weight_kg)
 
     def getInventory(self):
         state = self.storage.load()
-        inventory = HeroInventoryManager(self.max_weight_kg)
+        inventory = HeroInventoryManager(
+            state.get("max_weight_kg", self.max_weight_kg)
+        )
         next_id = 0
         used_ids = set()
         reserved_ids = set()
@@ -103,6 +105,9 @@ class GameRepository:
 
     def getWeight(self):
         return self.getInventory().total_weight_kg
+
+    def getInventoryStatistics(self):
+        return self.storage.get_inventory_statistics()
 
     def recover(self):
         return self.storage.recover()
