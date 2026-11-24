@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import shutil
 import sqlite3
 from pathlib import Path
@@ -69,27 +70,29 @@ class SQLiteStorage:
             )
         """)
 
-    def load(self):
+    def load(self, inventory_id=1):
         connection = self._connect()
         try:
             self._create_tables(connection)
             row = connection.execute(
                 "SELECT COUNT(*) AS amount FROM inventories"
             ).fetchone()
-            if row["amount"] == 0:
+            if row["amount"] == 0 and inventory_id == 1:
                 self._migrate_into_database(connection)
             self._remove_old_tables(connection)
 
             state_row = connection.execute(
-                "SELECT * FROM inventories WHERE inventory_id = ?", (1,)
+                "SELECT * FROM inventories WHERE inventory_id = ?", (inventory_id,)
             ).fetchone()
             if state_row is None:
+                if inventory_id != 1 or row["amount"] != 0:
+                    raise ValueError(f"Nie znaleziono bohatera o ID {inventory_id}.")
                 state = {"gold": 0, "inventory": [], "max_weight_kg": 200,
                          "character_name": "Bohater"}
                 with connection:
-                    self._write_state(connection, state)
+                    self._write_state(connection, state, inventory_id)
                 state_row = connection.execute(
-                    "SELECT * FROM inventories WHERE inventory_id = ?", (1,)
+                    "SELECT * FROM inventories WHERE inventory_id = ?", (inventory_id,)
                 ).fetchone()
 
             state = {
@@ -99,7 +102,7 @@ class SQLiteStorage:
             }
             rows = connection.execute(
                 "SELECT * FROM inventory_items WHERE inventory_id = ? ORDER BY item_id",
-                (state_row["inventory_id"],)
+                (inventory_id,)
             ).fetchall()
             for row in rows:
                 item = {"item_id": row["item_id"], "type": row["item_type"],
@@ -119,8 +122,52 @@ class SQLiteStorage:
         if state["gold_hash"] != self._gold_hash(state["gold"]):
             print("UWAGA: Wykryto zmianę złota. Złoto zostaje wyzerowane.")
             state["gold"] = 0
-            self.save(state, make_backup=False)
+            self.save(state, make_backup=False, inventory_id=inventory_id)
         return state
+
+    def get_heroes(self):
+        connection = self._connect()
+        try:
+            self._create_tables(connection)
+            rows = connection.execute(
+                "SELECT inventory_id, character_name, max_weight_kg, gold "
+                "FROM inventories ORDER BY inventory_id"
+            ).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            connection.close()
+
+    def create_hero(self, character_name, max_weight_kg):
+        character_name = str(character_name).strip()
+        max_weight_kg = float(max_weight_kg)
+        if not character_name:
+            raise ValueError("Nazwa bohatera nie może być pusta.")
+        if not math.isfinite(max_weight_kg) or max_weight_kg <= 0:
+            raise ValueError("Udźwig musi być większy od zera.")
+
+        connection = self._connect()
+        try:
+            self._create_tables(connection)
+            with connection:
+                cursor = connection.execute(
+                    """INSERT INTO inventories
+                       (character_name, max_weight_kg, gold, gold_hash)
+                       VALUES (?, ?, ?, ?)""",
+                    (character_name, max_weight_kg, 0, self._gold_hash(0))
+                )
+                return cursor.lastrowid
+        finally:
+            connection.close()
+
+    def get_next_item_id(self):
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT COALESCE(MAX(item_id), -1) + 1 AS next_id FROM inventory_items"
+            ).fetchone()
+            return row["next_id"]
+        finally:
+            connection.close()
 
     def _migrate_into_database(self, connection):
         old_state = None
@@ -172,7 +219,7 @@ class SQLiteStorage:
             if "game_state" in tables:
                 connection.execute("DROP TABLE game_state")
 
-    def _write_state(self, connection, state):
+    def _write_state(self, connection, state, inventory_id=1):
         gold = state.get("gold", 0)
         connection.execute(
             """INSERT INTO inventories
@@ -182,14 +229,14 @@ class SQLiteStorage:
                character_name=excluded.character_name,
                max_weight_kg=excluded.max_weight_kg,
                gold=excluded.gold, gold_hash=excluded.gold_hash""",
-            (1, state.get("character_name", "Bohater"),
+            (inventory_id, state.get("character_name", "Bohater"),
              float(state.get("max_weight_kg", 200)), gold, self._gold_hash(gold))
         )
-        connection.execute("DELETE FROM inventory_items WHERE inventory_id = ?", (1,))
+        connection.execute("DELETE FROM inventory_items WHERE inventory_id = ?", (inventory_id,))
         for item in state.get("inventory", []):
-            self._insert_item(connection, item)
+            self._insert_item(connection, item, inventory_id)
 
-    def save(self, state, make_backup=True):
+    def save(self, state, make_backup=True, inventory_id=1):
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         if make_backup and self.file_path.exists():
             self.backup_path.parent.mkdir(parents=True, exist_ok=True)
@@ -201,11 +248,11 @@ class SQLiteStorage:
         try:
             self._create_tables(connection)
             with connection:
-                self._write_state(connection, state)
+                self._write_state(connection, state, inventory_id)
         finally:
             connection.close()
 
-    def get_inventory_statistics(self):
+    def get_inventory_statistics(self, inventory_id=1):
         """Zwraca proste podsumowanie przedmiotów pogrupowane według rzadkości."""
         connection = self._connect()
         try:
@@ -222,17 +269,17 @@ class SQLiteStorage:
                    GROUP BY inventory_items.rarity
                    HAVING COUNT(inventory_items.item_id) > 0
                    ORDER BY inventory_items.rarity""",
-                (1,)
+                (inventory_id,)
             ).fetchall()
             return [dict(row) for row in rows]
         finally:
             connection.close()
 
-    def _insert_item(self, connection, item):
+    def _insert_item(self, connection, item, inventory_id=1):
         item_type = str(item.get("type", item.get("item_type", "other"))).lower()
         if item_type in {"item", "miscitem"}:
             item_type = "other"
-        values = (item.get("item_id", item.get("id")), 1, item_type, item["name"],
+        values = (item.get("item_id", item.get("id")), inventory_id, item_type, item["name"],
                   item.get("weight_kg", item.get("weight")),
                   item.get("gold_value", item.get("value")), item["rarity"],
                   int(item.get("quantity", item.get("count", 1))),

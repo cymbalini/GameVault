@@ -107,6 +107,25 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(common["total_gold_value"], 30)
         self.assertEqual(common["average_gold_value"], 15)
 
+    def test_heroes_can_be_added_and_selected_separately(self):
+        repository = GameRepository(self.storage)
+        default_hero = repository.getHeroes()[0]
+        repository.addItem(Weapon(0, "Miecz", 2, 20, "Rare", 7))
+        repository.addGold(30)
+
+        new_hero_id = repository.createHero("Luna", 25)
+        repository.selectHero(new_hero_id)
+        self.assertEqual(repository.getInventory().max_weight_kg, 25)
+        self.assertEqual(repository.getItems(), [])
+        self.assertEqual(repository.getGold(), 0)
+        repository.addItem(Weapon(repository.getNextItemId(), "Łuk", 1, 15, "Common", 5))
+
+        repository.selectHero(default_hero["inventory_id"])
+        self.assertEqual([item.name for item in repository.getItems()], ["Miecz"])
+        self.assertEqual(repository.getGold(), 30)
+        repository.selectHero(new_hero_id)
+        self.assertEqual([item.name for item in repository.getItems()], ["Łuk"])
+
     def test_deleting_inventory_cascades_to_items(self):
         self.storage.save({"gold": 0, "inventory": [
             Weapon(1, "Topór", 2, 10, "Common", 5).to_dict()

@@ -7,9 +7,32 @@ class GameRepository:
     def __init__(self, storage=None, max_weight_kg=200):
         self.storage = storage or SQLiteStorage()
         self.max_weight_kg = float(max_weight_kg)
+        self.active_inventory_id = 1
+
+    def getHeroes(self):
+        heroes = self.storage.get_heroes()
+        if not heroes:
+            self.storage.load()
+            heroes = self.storage.get_heroes()
+        return heroes
+
+    def createHero(self, character_name, max_weight_kg):
+        self.getHeroes()
+        return self.storage.create_hero(character_name, max_weight_kg)
+
+    def selectHero(self, inventory_id):
+        inventory_id = int(inventory_id)
+        heroes = self.getHeroes()
+        if not any(hero["inventory_id"] == inventory_id for hero in heroes):
+            raise ValueError(f"Nie znaleziono bohatera o ID {inventory_id}.")
+        self.active_inventory_id = inventory_id
+        return next(hero for hero in heroes if hero["inventory_id"] == inventory_id)
+
+    def getNextItemId(self):
+        return self.storage.get_next_item_id()
 
     def getInventory(self):
-        state = self.storage.load()
+        state = self.storage.load(self.active_inventory_id)
         inventory = HeroInventoryManager(
             state.get("max_weight_kg", self.max_weight_kg)
         )
@@ -77,17 +100,17 @@ class GameRepository:
         inventory = self.getInventory()
         inventory.add_item(item)
 
-        state = self.storage.load()
+        state = self.storage.load(self.active_inventory_id)
         state["inventory"] = [saved_item.to_dict() for saved_item in inventory.items]
-        self.storage.save(state)
+        self.storage.save(state, inventory_id=self.active_inventory_id)
 
     def getGold(self):
-        return self.storage.load().get("gold", 0)
+        return self.storage.load(self.active_inventory_id).get("gold", 0)
 
     def addGold(self, amount):
-        state = self.storage.load()
+        state = self.storage.load(self.active_inventory_id)
         state["gold"] = max(0, state.get("gold", 0) + amount)
-        self.storage.save(state)
+        self.storage.save(state, inventory_id=self.active_inventory_id)
         return state["gold"]
 
     def sellAllItems(self):
@@ -97,17 +120,17 @@ class GameRepository:
 
         total_value = sum(item.calculate_gold_value() for item in items)
 
-        state = self.storage.load()
+        state = self.storage.load(self.active_inventory_id)
         state["inventory"] = []
         state["gold"] = state.get("gold", 0) + total_value
-        self.storage.save(state)
+        self.storage.save(state, inventory_id=self.active_inventory_id)
         return len(items), total_value, state["gold"]
 
     def getWeight(self):
         return self.getInventory().total_weight_kg
 
     def getInventoryStatistics(self):
-        return self.storage.get_inventory_statistics()
+        return self.storage.get_inventory_statistics(self.active_inventory_id)
 
     def recover(self):
         return self.storage.recover()

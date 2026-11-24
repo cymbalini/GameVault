@@ -3,7 +3,7 @@
 **Przedmiot:** Programowanie w języku Python (`IwIK-S1`)  
 **Temat:** Relacyjna baza danych SQLite  
 **Autor:** Krzysztof Nowak  
-**Data:** 17.11.2026
+**Data:** 24.11.2026
 
 ---
 
@@ -34,7 +34,7 @@ INVENTORIES (1) ────────< (wiele) INVENTORY_ITEMS
   gold, gold_hash             pola podklas: broń, pancerz, mikstura
 ```
 
-Tabela `inventories` przechowuje bohatera, limit udźwigu, złoto i jego sumę kontrolną. Tabela `inventory_items` przechowuje przedmioty oraz dyskryminator `item_type`, który pozwala odtworzyć właściwą podklasę. Klucz obcy ma `ON DELETE CASCADE`, więc usunięcie ekwipunku usuwa jego przedmioty. SQL sprawdza limit większy od zera, nieujemną wagę i wartość, dodatnią ilość oraz rzadkość z dozwolonego zestawu.
+Tabela `inventories` przechowuje wielu bohaterów, każdy z osobnym limitem udźwigu, stanem złota i jego sumą kontrolną. Tabela `inventory_items` przechowuje przedmioty oraz dyskryminator `item_type`, który pozwala odtworzyć właściwą podklasę. Klucz obcy ma `ON DELETE CASCADE`, więc usunięcie bohatera usuwa jego przedmioty. SQL sprawdza limit większy od zera, nieujemną wagę i wartość, dodatnią ilość oraz rzadkość z dozwolonego zestawu. Menu pozwala dodać bohatera oraz zmienić aktywny ekwipunek.
 
 ## 4. Zapis i bezpieczeństwo zapytań
 
@@ -77,6 +77,6 @@ python src/tests/test_models.py
 python src/tests/test_database.py
 ```
 
-`test_database.py` sprawdza dwie tabele, odrzucenie osieroconego rekordu przez klucz obcy, kaskadowe usuwanie, zapis i odczyt przez repozytorium, migrację JSON, bezpieczne przechowanie nazwy podobnej do SQL oraz wyniki grupowania i agregacji. Testy migracji używają tymczasowych plików, więc nie zmieniają właściwego zapisu gry. `test_manager.py` sprawdza polimorficzną moc i limit wagi, zapis i odczyt typów przedmiotów oraz integralność bazy.
+`test_database.py` sprawdza dwie tabele, odrzucenie osieroconego rekordu przez klucz obcy, kaskadowe usuwanie, zapis i odczyt przez repozytorium, migrację JSON, bezpieczne przechowanie nazwy podobnej do SQL, wyniki grupowania i agregacji oraz oddzielne dane dwóch bohaterów. Testy migracji używają tymczasowych plików, więc nie zmieniają właściwego zapisu gry. `test_manager.py` sprawdza polimorficzną moc i limit wagi, zapis i odczyt typów przedmiotów oraz integralność bazy.
 
 `test_models.py` sprawdza walidację przedmiotów, sortowanie, dziedziczenie i odtworzenie ekwipunku z serializacji.

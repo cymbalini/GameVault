@@ -21,3 +21,5 @@ python src/tests/test_database.py
 ```
 
 Opcja 11 w menu pokazuje podsumowanie przedmiotów według rzadkości. Dane są liczone w SQLite przez `JOIN`, `GROUP BY`, `SUM` i `AVG`. Wartości w zapytaniach SQL są przekazywane przez placeholdery `?`.
+
+Opcja 12 pozwala przełączyć aktywnego bohatera po ID, a opcja 13 tworzy nowego bohatera z własnym limitem udźwigu. Każdy bohater ma oddzielny ekwipunek i stan złota.

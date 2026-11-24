@@ -17,7 +17,7 @@ class GameVaultApp:
         self.print_menu()
         running = True
         while running:
-            choice = self.validator.getNonEmptyString("Wybierz opcję [1-11]: ")
+            choice = self.validator.getNonEmptyString("Wybierz opcję [1-13]: ")
             running = self.handle_choice(choice)
 
     def handle_choice(self, choice):
@@ -46,8 +46,12 @@ class GameVaultApp:
                 self.sell_all_items()
             case "11":
                 self.show_inventory_statistics()
+            case "12":
+                self.select_hero()
+            case "13":
+                self.add_hero()
             case _:
-                print("Błąd: nieznana opcja. Wybierz wartość od 1 do 11.")
+                print("Błąd: nieznana opcja. Wybierz wartość od 1 do 13.")
         return True
     def show_inventory(self, items=None):
         if items is None:
@@ -65,7 +69,8 @@ class GameVaultApp:
         weight = sum(item.weight_kg for item in items)
         print("-" * 84)
         print(f"Łączna waga pokazanych przedmiotów: {weight:.2f} kg")
-        print(f"Waga całego plecaka: {self.repository.getWeight():.2f} / {self.MAX_WEIGHT_KG} kg")
+        max_weight = self.repository.getInventory().max_weight_kg
+        print(f"Waga całego plecaka: {self.repository.getWeight():.2f} / {max_weight:g} kg")
         print(f"Potencjał bojowy: {self.repository.getInventory().calculate_total_combat_power():.2f}")
         print(f"Złoto: {self.repository.getGold()}")
 
@@ -89,8 +94,7 @@ class GameVaultApp:
         rarity = self.validator.getRarity("Podaj rzadkość: ")
         value = self.validator.getFloat("Podaj wartość w złocie: ", min_value=0)
 
-        items = self.repository.getItems()
-        item_id = max((item.item_id for item in items), default=-1) + 1
+        item_id = self.repository.getNextItemId()
         try:
             creators = {
                 "Weapon": self._create_weapon,
@@ -124,7 +128,8 @@ class GameVaultApp:
         return MiscItem(item_id, name, weight, value, rarity)
 
     def export_inventory(self):
-        if self.repository.getWeight() > self.MAX_WEIGHT_KG:
+        max_weight = self.repository.getInventory().max_weight_kg
+        if self.repository.getWeight() > max_weight:
             print("Eksport przerwany: przekroczono maksymalny udźwig plecaka.")
             return
         try:
@@ -158,9 +163,40 @@ class GameVaultApp:
                   f"{row['total_weight_kg']:<12.2f}{row['total_gold_value']:<14.2f}"
                   f"{row['average_gold_value']:<16.2f}")
 
+    def select_hero(self):
+        heroes = self.repository.getHeroes()
+        print("\nDOSTĘPNI BOHATEROWIE")
+        for hero in heroes:
+            marker = " (aktywny)" if hero["inventory_id"] == self.repository.active_inventory_id else ""
+            print(f"{hero['inventory_id']}. {hero['character_name']}{marker}")
+        hero_id = self.validator.getInt("Podaj ID bohatera: ", min_value=1)
+        try:
+            hero = self.repository.selectHero(hero_id)
+            print(f"Aktywny bohater: {hero['character_name']} (ID {hero_id}).")
+        except ValueError as error:
+            print(error)
+
+    def add_hero(self):
+        name = self.validator.getNonEmptyString("Podaj imię bohatera: ")
+        max_weight = self.validator.getFloat(
+            "Podaj maksymalny udźwig plecaka w kg: ", min_value=0.01
+        )
+        try:
+            hero_id = self.repository.createHero(name, max_weight)
+            self.repository.selectHero(hero_id)
+            print(f"Dodano bohatera {name} (ID {hero_id}) i ustawiono go jako aktywnego.")
+        except ValueError as error:
+            print(f"Nie udało się dodać bohatera: {error}")
+
     def print_menu(self):
+        heroes = self.repository.getHeroes()
+        active_hero = next(
+            hero for hero in heroes
+            if hero["inventory_id"] == self.repository.active_inventory_id
+        )
         print("\n" + "=" * 40)
         print(" GAMEVAULT - EKWIPUNEK BOHATERA")
+        print(f"Aktywny bohater: {active_hero['character_name']} (ID {active_hero['inventory_id']})")
         print("=" * 40)
         print("1. Wyświetl menu")
         print("2. Wyświetl ekwipunek")
@@ -173,4 +209,6 @@ class GameVaultApp:
         print("9. Przywróć zapis z kopii")
         print("10. Sprzedaj cały ekwipunek")
         print("11. Statystyki według rzadkości")
+        print("12. Zmień aktywnego bohatera")
+        print("13. Dodaj bohatera")
         print("=" * 40)
