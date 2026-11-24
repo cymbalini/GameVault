@@ -129,8 +129,24 @@ class GameRepository:
     def getWeight(self):
         return self.getInventory().total_weight_kg
 
-    def getInventoryStatistics(self):
-        return self.storage.get_inventory_statistics(self.active_inventory_id)
+    def getInventoryStatistics(self, min_total_gold=0):
+        return self.storage.get_inventory_statistics(
+            self.active_inventory_id, min_total_gold
+        )
+
+    def getHeroSummaries(self, min_total_gold=0):
+        return self.storage.get_hero_summaries(min_total_gold)
+
+    def searchItems(self, phrase, rarity, min_gold_value, sort_by):
+        rows = self.storage.search_items(
+            self.active_inventory_id, phrase, rarity, min_gold_value, sort_by
+        )
+        return [Item.from_dict(row) for row in rows]
+
+    def transferItem(self, item_id, target_inventory_id):
+        self.storage.transfer_item(
+            item_id, self.active_inventory_id, int(target_inventory_id)
+        )
 
     def recover(self):
         return self.storage.recover()

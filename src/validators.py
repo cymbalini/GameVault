@@ -6,6 +6,7 @@ class InputValidator:
         "rarity", "item_type"
     ]
     ITEM_TYPES = ["Weapon", "Armor", "Potion", "Other"]
+    SEARCH_SORT_COLUMNS = ["name", "weight_kg", "gold_value", "rarity", "item_type"]
 
     def getInt(self, prompt, min_value=None, max_value=None):
         while True:
@@ -57,6 +58,22 @@ class InputValidator:
             if value in self.RARITIES:
                 return value
             print("Podaj rzadkość: Common, Rare, Epic lub Legendary.")
+
+    def getRarityOrAll(self, prompt):
+        while True:
+            value = input(prompt).strip().title()
+            if value in {"", "All", "Wszystkie"}:
+                return None
+            if value in self.RARITIES:
+                return value
+            print("Podaj rzadkość albo wpisz 'all'.")
+
+    def getSearchSort(self, prompt):
+        while True:
+            value = input(prompt).strip().lower()
+            if value in self.SEARCH_SORT_COLUMNS:
+                return value
+            print("Dozwolone sortowanie: name, weight_kg, gold_value, rarity, item_type.")
 
     def getItemType(self, prompt):
         while True:

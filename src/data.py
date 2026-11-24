@@ -252,26 +252,127 @@ class SQLiteStorage:
         finally:
             connection.close()
 
-    def get_inventory_statistics(self, inventory_id=1):
-        """Zwraca proste podsumowanie przedmiotów pogrupowane według rzadkości."""
+    def get_inventory_statistics(self, inventory_id=1, min_total_gold=0):
+        """Zwraca statystyki ekwipunku pogrupowane według rzadkości."""
         connection = self._connect()
         try:
             rows = connection.execute(
                 """SELECT inventory_items.rarity,
                           COUNT(inventory_items.item_id) AS item_count,
-                          SUM(inventory_items.weight_kg) AS total_weight_kg,
-                          SUM(inventory_items.gold_value) AS total_gold_value,
-                          AVG(inventory_items.gold_value) AS average_gold_value
+                          COALESCE(SUM(inventory_items.weight_kg), 0.0) AS total_weight_kg,
+                          COALESCE(SUM(inventory_items.gold_value), 0.0) AS total_gold_value,
+                          COALESCE(AVG(inventory_items.gold_value), 0.0) AS average_gold_value
                    FROM inventories
                    LEFT JOIN inventory_items
                      ON inventory_items.inventory_id = inventories.inventory_id
                    WHERE inventories.inventory_id = ?
                    GROUP BY inventory_items.rarity
-                   HAVING COUNT(inventory_items.item_id) > 0
+                   HAVING COALESCE(SUM(inventory_items.gold_value), 0.0) >= ?
                    ORDER BY inventory_items.rarity""",
-                (inventory_id,)
+                (inventory_id, min_total_gold)
             ).fetchall()
             return [dict(row) for row in rows]
+        finally:
+            connection.close()
+
+    def get_hero_summaries(self, min_total_gold=0):
+        """Raportuje wagę, wartość i wolny udźwig każdego bohatera."""
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """SELECT inventories.inventory_id,
+                          inventories.character_name,
+                          inventories.max_weight_kg,
+                          COALESCE(SUM(inventory_items.weight_kg), 0.0) AS total_weight_kg,
+                          COALESCE(SUM(inventory_items.gold_value), 0.0) AS total_gold_value,
+                          inventories.max_weight_kg -
+                              COALESCE(SUM(inventory_items.weight_kg), 0.0) AS free_weight_kg
+                   FROM inventories
+                   LEFT JOIN inventory_items
+                     ON inventory_items.inventory_id = inventories.inventory_id
+                   GROUP BY inventories.inventory_id, inventories.character_name,
+                            inventories.max_weight_kg
+                   HAVING COALESCE(SUM(inventory_items.gold_value), 0.0) >= ?
+                       OR COALESCE(SUM(inventory_items.weight_kg), 0.0) >
+                          inventories.max_weight_kg
+                   ORDER BY inventories.inventory_id""",
+                (min_total_gold,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            connection.close()
+
+    def search_items(self, inventory_id, phrase, rarity, min_gold_value, sort_by):
+        """Wyszukuje przedmioty. Dane użytkownika są zawsze parametrami SQL."""
+        allowed_sort_columns = {
+            "name": "name",
+            "weight_kg": "weight_kg",
+            "gold_value": "gold_value",
+            "rarity": "rarity",
+            "item_type": "item_type",
+        }
+        if sort_by not in allowed_sort_columns:
+            raise ValueError("Niedozwolona kolumna sortowania.")
+
+        sql = """SELECT item_id, item_type AS type, name, weight_kg, gold_value,
+                        rarity, base_damage, hit_multiplier, durability_percent,
+                        defense_class, equipment_slot, magic_resistance, healing_power,
+                        quantity AS count
+                 FROM inventory_items
+                 WHERE inventory_id = :inventory_id
+                   AND name LIKE :pattern
+                   AND gold_value >= :min_gold_value"""
+        parameters = {
+            "inventory_id": inventory_id,
+            "pattern": f"%{phrase}%",
+            "min_gold_value": min_gold_value,
+        }
+        if rarity is not None:
+            sql += " AND rarity = :rarity"
+            parameters["rarity"] = rarity
+        sql += f" ORDER BY {allowed_sort_columns[sort_by]} ASC"
+
+        connection = self._connect()
+        try:
+            rows = connection.execute(sql, parameters).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            connection.close()
+
+    def transfer_item(self, item_id, source_inventory_id, target_inventory_id):
+        """Przenosi przedmiot atomowo i cofa operację, jeśli nie mieści się w plecaku."""
+        if source_inventory_id == target_inventory_id:
+            raise ValueError("Wybierz innego bohatera jako cel transferu.")
+
+        connection = self._connect()
+        try:
+            with connection:
+                item = connection.execute(
+                    """SELECT weight_kg FROM inventory_items
+                       WHERE item_id = ? AND inventory_id = ?""",
+                    (item_id, source_inventory_id)
+                ).fetchone()
+                target = connection.execute(
+                    "SELECT max_weight_kg FROM inventories WHERE inventory_id = ?",
+                    (target_inventory_id,)
+                ).fetchone()
+                if item is None:
+                    raise ValueError("Nie znaleziono przedmiotu w aktywnym ekwipunku.")
+                if target is None:
+                    raise ValueError("Nie znaleziono bohatera docelowego.")
+
+                connection.execute(
+                    """UPDATE inventory_items SET inventory_id = ?
+                       WHERE item_id = ? AND inventory_id = ?""",
+                    (target_inventory_id, item_id, source_inventory_id)
+                )
+                target_weight = connection.execute(
+                    """SELECT COALESCE(SUM(weight_kg), 0.0)
+                       FROM inventory_items WHERE inventory_id = ?""",
+                    (target_inventory_id,)
+                ).fetchone()[0]
+                if target_weight > target["max_weight_kg"]:
+                    raise ValueError("Przedmiot przekroczyłby udźwig bohatera docelowego.")
         finally:
             connection.close()
 

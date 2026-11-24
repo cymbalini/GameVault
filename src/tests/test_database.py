@@ -91,6 +91,24 @@ class DatabaseTests(unittest.TestCase):
         )}
         connection.close()
         self.assertIn("inventory_items", tables)
+        found = repository.searchItems(strange_name, None, 0, "name")
+        self.assertEqual([item.name for item in found], [strange_name])
+        self.assertEqual(repository.searchItems("' OR '1'='1", None, 0, "name"), [])
+
+    def test_search_filters_and_sort_whitelist(self):
+        items = [
+            Weapon(1, "Miecz krótki", 1, 10, "Common", 2).to_dict(),
+            Weapon(2, "Miecz runiczny", 2, 80, "Epic", 12).to_dict(),
+            Weapon(3, "Topór", 3, 25, "Rare", 6).to_dict(),
+        ]
+        self.storage.save({"gold": 0, "inventory": items}, make_backup=False)
+        repository = GameRepository(self.storage)
+        found = repository.searchItems("miecz", "Epic", 50, "gold_value")
+        self.assertEqual([item.name for item in found], ["Miecz runiczny"])
+        sorted_items = repository.searchItems("miecz", None, 0, "gold_value")
+        self.assertEqual([item.name for item in sorted_items], ["Miecz krótki", "Miecz runiczny"])
+        with self.assertRaises(ValueError):
+            repository.searchItems("miecz", None, 0, "name; DROP TABLE inventory_items")
 
     def test_statistics_join_and_group_items_by_rarity(self):
         items = [
@@ -125,6 +143,44 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(repository.getGold(), 30)
         repository.selectHero(new_hero_id)
         self.assertEqual([item.name for item in repository.getItems()], ["Łuk"])
+
+    def test_transfer_rolls_back_when_target_would_be_overloaded(self):
+        self.storage.save({"gold": 0, "max_weight_kg": 10, "inventory": [
+            Weapon(1, "Ciężki miecz", 2, 20, "Rare", 7).to_dict()
+        ]}, make_backup=False)
+        target_id = self.storage.create_hero("Lekki bohater", 1)
+        repository = GameRepository(self.storage)
+
+        with self.assertRaises(ValueError):
+            repository.transferItem(1, target_id)
+
+        repository.selectHero(1)
+        self.assertEqual([item.name for item in repository.getItems()], ["Ciężki miecz"])
+        repository.selectHero(target_id)
+        self.assertEqual(repository.getItems(), [])
+
+    def test_transfer_succeeds_when_target_has_capacity(self):
+        self.storage.save({"gold": 0, "inventory": [
+            Weapon(1, "Lekki miecz", 1, 20, "Rare", 7).to_dict()
+        ]}, make_backup=False)
+        target_id = self.storage.create_hero("Silny bohater", 5)
+        repository = GameRepository(self.storage)
+
+        repository.transferItem(1, target_id)
+
+        repository.selectHero(1)
+        self.assertEqual(repository.getItems(), [])
+        repository.selectHero(target_id)
+        self.assertEqual([item.name for item in repository.getItems()], ["Lekki miecz"])
+
+    def test_hero_summary_uses_zero_for_empty_inventory(self):
+        repository = GameRepository(self.storage)
+        repository.getHeroes()
+        rows = repository.getHeroSummaries()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["total_weight_kg"], 0)
+        self.assertEqual(rows[0]["total_gold_value"], 0)
+        self.assertEqual(rows[0]["free_weight_kg"], 200)
 
     def test_deleting_inventory_cascades_to_items(self):
         self.storage.save({"gold": 0, "inventory": [

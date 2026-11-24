@@ -51,21 +51,29 @@ row = connection.execute(
 
 Podobnie parametryzowane jest dodawanie rekordów. Nazwa przedmiotu zawierająca tekst podobny do SQL jest zapisywana jako zwykła wartość, a tabela pozostaje nienaruszona. Dyskryminator typu jest odczytywany przez rejestr klas, więc baza zachowuje polimorficzne typy przedmiotów.
 
+Wyszukiwanie przedmiotów używa `LIKE`, filtra rzadkości i minimalnej wartości, przekazując dane jako parametry nazwane. Sortowanie wybiera kolumnę z białej listy (`name`, `weight_kg`, `gold_value`, `rarity`, `item_type`); nazwa kolumny nie pochodzi bezpośrednio od użytkownika.
+
 ## 5. Analityka SQL
 
-Opcja 11 menu prezentuje liczbę, łączną wagę i wartość przedmiotów dla każdej rzadkości. Obliczenia są wykonywane w SQLite przez relacyjne złączenie, grupowanie i agregacje:
+Opcja 11 prezentuje liczbę, łączną wagę i wartość przedmiotów dla każdej rzadkości, a opcja 15 pokazuje sumę wagi, wartość i wolny udźwig wszystkich plecaków. Oba raporty wykonują `LEFT JOIN`, `GROUP BY`, `HAVING` i `COALESCE` po stronie SQLite. Przykład zapytania dla raportu bohaterów:
 
 ```sql
-SELECT inventory_items.rarity,
-       COUNT(inventory_items.item_id),
-       SUM(inventory_items.weight_kg),
-       AVG(inventory_items.gold_value)
+SELECT inventories.inventory_id,
+       inventories.character_name,
+       COALESCE(SUM(inventory_items.weight_kg), 0.0) AS total_weight_kg,
+       COALESCE(SUM(inventory_items.gold_value), 0.0) AS total_gold_value,
+       inventories.max_weight_kg -
+           COALESCE(SUM(inventory_items.weight_kg), 0.0) AS free_weight_kg
 FROM inventories
 LEFT JOIN inventory_items
   ON inventory_items.inventory_id = inventories.inventory_id
-WHERE inventories.inventory_id = ?
-GROUP BY inventory_items.rarity;
+GROUP BY inventories.inventory_id, inventories.character_name,
+         inventories.max_weight_kg
+HAVING COALESCE(SUM(inventory_items.gold_value), 0.0) >= ?
+    OR COALESCE(SUM(inventory_items.weight_kg), 0.0) > inventories.max_weight_kg;
 ```
+
+Opcja 16 atomowo przenosi przedmiot między bohaterami. Transfer najpierw zmienia przypisanie w otwartej transakcji, a następnie sprawdza limit plecaka. Jeśli limit zostałby przekroczony, metoda zgłasza `ValueError`, a blok `with connection:` wycofuje zmianę.
 
 ## 6. Weryfikacja
 
@@ -74,9 +82,9 @@ Testy uruchamia się z katalogu głównego projektu:
 ```text
 python src/tests/test_manager.py
 python src/tests/test_models.py
-python src/tests/test_database.py
+python src/tests/test_database1.py
 ```
 
-`test_database.py` sprawdza dwie tabele, odrzucenie osieroconego rekordu przez klucz obcy, kaskadowe usuwanie, zapis i odczyt przez repozytorium, migrację JSON, bezpieczne przechowanie nazwy podobnej do SQL, wyniki grupowania i agregacji oraz oddzielne dane dwóch bohaterów. Testy migracji używają tymczasowych plików, więc nie zmieniają właściwego zapisu gry. `test_manager.py` sprawdza polimorficzną moc i limit wagi, zapis i odczyt typów przedmiotów oraz integralność bazy.
+`src/tests/test_database1.py` sprawdza dwie tabele, klucz obcy, kaskadowe usuwanie, migrację JSON, ochronę przed SQL Injection, filtry i białą listę sortowania, dwa raporty JOIN, oddzielne dane bohaterów oraz rollback transferu, który przekracza udźwig. Testy migracji używają tymczasowych plików, więc nie zmieniają właściwego zapisu gry. `test_manager.py` sprawdza polimorficzną moc i limit wagi, zapis i odczyt typów przedmiotów oraz integralność bazy.
 
 `test_models.py` sprawdza walidację przedmiotów, sortowanie, dziedziczenie i odtworzenie ekwipunku z serializacji.

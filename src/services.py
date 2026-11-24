@@ -17,7 +17,7 @@ class GameVaultApp:
         self.print_menu()
         running = True
         while running:
-            choice = self.validator.getNonEmptyString("Wybierz opcję [1-13]: ")
+            choice = self.validator.getNonEmptyString("Wybierz opcję [1-16]: ")
             running = self.handle_choice(choice)
 
     def handle_choice(self, choice):
@@ -50,8 +50,14 @@ class GameVaultApp:
                 self.select_hero()
             case "13":
                 self.add_hero()
+            case "14":
+                self.search_inventory()
+            case "15":
+                self.show_hero_summaries()
+            case "16":
+                self.transfer_item()
             case _:
-                print("Błąd: nieznana opcja. Wybierz wartość od 1 do 13.")
+                print("Błąd: nieznana opcja. Wybierz wartość od 1 do 16.")
         return True
     def show_inventory(self, items=None):
         if items is None:
@@ -151,17 +157,74 @@ class GameVaultApp:
         print(f"Nowy stan złota: {gold_total:.2f}.")
 
     def show_inventory_statistics(self):
-        statistics = self.repository.getInventoryStatistics()
+        minimum = self.validator.getFloat(
+            "Minimalna łączna wartość rzadkości (0 = wszystkie): ", min_value=0
+        )
+        statistics = self.repository.getInventoryStatistics(minimum)
         if not statistics:
-            print("Brak przedmiotów do podsumowania.")
+            print("Brak grup spełniających podany próg wartości.")
             return
 
         print("\nPODSUMOWANIE WEDŁUG RZADKOŚCI")
         print(f"{'Rzadkość':<14}{'Sztuki':<10}{'Waga kg':<12}{'Suma złota':<14}{'Średnia wartość':<16}")
         for row in statistics:
-            print(f"{row['rarity']:<14}{row['item_count']:<10}"
+            rarity = row["rarity"] or "Brak przedmiotów"
+            print(f"{rarity:<14}{row['item_count']:<10}"
                   f"{row['total_weight_kg']:<12.2f}{row['total_gold_value']:<14.2f}"
                   f"{row['average_gold_value']:<16.2f}")
+
+    def search_inventory(self):
+        phrase = self.validator.getNonEmptyString("Fragment nazwy: ")
+        rarity = self.validator.getRarityOrAll("Rzadkość (albo all): ")
+        minimum = self.validator.getFloat("Minimalna wartość przedmiotu: ", min_value=0)
+        sort_by = self.validator.getSearchSort("Sortuj według (name/weight_kg/gold_value/rarity/item_type): ")
+        items = self.repository.searchItems(phrase, rarity, minimum, sort_by)
+        if not items:
+            print("Nie znaleziono pasujących przedmiotów.")
+            return
+        self.show_inventory(items)
+
+    def show_hero_summaries(self):
+        minimum = self.validator.getFloat(
+            "Minimalna wartość plecaka (0 = pokaż wszystkie): ", min_value=0
+        )
+        rows = self.repository.getHeroSummaries(minimum)
+        if not rows:
+            print("Brak bohaterów spełniających podany próg.")
+            return
+
+        print("\nRAPORT PLECAKÓW")
+        print(f"{'ID':<6}{'Bohater':<20}{'Waga':<12}{'Wolne miejsce':<16}{'Wartość':<12}{'Status'}")
+        for row in rows:
+            status = "PRZECIĄŻONY" if row["free_weight_kg"] < 0 else "OK"
+            print(f"{row['inventory_id']:<6}{row['character_name']:<20}"
+                  f"{row['total_weight_kg']:.2f}/{row['max_weight_kg']:.2f} kg  "
+                  f"{row['free_weight_kg']:<16.2f}{row['total_gold_value']:<12.2f}{status}")
+
+    def transfer_item(self):
+        items = self.repository.getItems()
+        if not items:
+            print("Aktywny bohater nie ma przedmiotów do przeniesienia.")
+            return
+        heroes = [hero for hero in self.repository.getHeroes()
+                  if hero["inventory_id"] != self.repository.active_inventory_id]
+        if not heroes:
+            print("Dodaj drugiego bohatera, aby przenieść przedmiot.")
+            return
+
+        print("\nPRZEDMIOTY AKTYWNEGO BOHATERA")
+        for item in items:
+            print(f"{item.item_id}. {item.name} ({item.weight_kg:.2f} kg)")
+        item_id = self.validator.getInt("ID przedmiotu: ", min_value=0)
+        print("\nBOHATEROWIE DOCELOWI")
+        for hero in heroes:
+            print(f"{hero['inventory_id']}. {hero['character_name']}")
+        target_id = self.validator.getInt("ID bohatera docelowego: ", min_value=1)
+        try:
+            self.repository.transferItem(item_id, target_id)
+            print("Przedmiot przeniesiono.")
+        except ValueError as error:
+            print(f"Transfer anulowany: {error}")
 
     def select_hero(self):
         heroes = self.repository.getHeroes()
@@ -211,4 +274,7 @@ class GameVaultApp:
         print("11. Statystyki według rzadkości")
         print("12. Zmień aktywnego bohatera")
         print("13. Dodaj bohatera")
+        print("14. Szukaj przedmiotów")
+        print("15. Raport plecaków bohaterów")
+        print("16. Przenieś przedmiot do innego bohatera")
         print("=" * 40)
